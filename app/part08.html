@@ -2,6 +2,38 @@
       cards.push(`<div class="v48hour"><b>${j===0?'NU':hour(h.time[i])}</b><div style="font-size:25px">${v49WeatherIcon(code)}</div><div class="v48temp">${Number.isFinite(temp)?Math.round(temp)+'°':'--'}</div><div style="font-size:12px">🌧️ ${Math.round(rain)}%</div><div class="v48rain"><i style="width:${Math.max(0,Math.min(100,rain))}%"></i></div><div style="font-size:12px;margin-top:5px">💨 ${Math.round(wind)} km/u</div>${gust>wind+10?`<div style="font-size:11px;color:#fde68a">stoot ${Math.round(gust)}</div>`:''}</div>`);
     }
     $v('v48Hours').innerHTML=cards.join('');
+    // V50: visuele 12-uurs trendgrafiek
+    if(!$v('v50Chart')){
+      const radar=$v('topRadar');
+      const sec=document.createElement('section');
+      sec.id='v50Chart';
+      sec.style.cssText='max-width:1100px;margin:0 auto 18px;padding:16px;border-radius:18px;background:#132238;box-shadow:0 5px 20px rgba(0,0,0,.18)';
+      sec.innerHTML='<h2 style="margin-top:0">📈 V50 • 12-uurs weertrend</h2><p id="v50ChartInfo" class="muted">Temperatuur, regenkans en wind in één overzicht.</p><div id="v50SvgWrap" style="width:100%;overflow-x:auto"></div>';
+      radar?.parentNode?.insertBefore(sec,radar);
+    }
+    const svgW=Math.max(720,n*68), svgH=260, padL=42,padR=18,padT=28,padB=42;
+    const tVals=temps.slice(idx,idx+n).map(Number), rVals=rains.slice(idx,idx+n).map(Number), wVals=winds.slice(idx,idx+n).map(Number);
+    const finiteT=tVals.filter(Number.isFinite), tMin=finiteT.length?Math.floor(Math.min(...finiteT)-1):0, tMax=finiteT.length?Math.ceil(Math.max(...finiteT)+1):10;
+    const x=j=>padL+(j*(svgW-padL-padR))/Math.max(1,n-1), yT=v=>padT+(tMax-v)*(svgH-padT-padB)/Math.max(1,tMax-tMin), yPct=v=>padT+(100-v)*(svgH-padT-padB)/100;
+    const line=(vals,yf,cls)=>vals.map((v,j)=>Number.isFinite(v)?(x(j)+','+yf(v)):null).filter(Boolean).join(' ');
+    const tempPts=line(tVals,yT,'temp'), rainPts=line(rVals,yPct,'rain'), windPts=line(wVals,yPct,'wind');
+    let grid='';
+    for(let p=0;p<=100;p+=25){const yy=yPct(p);grid+=`<line x1="${padL}" y1="${yy}" x2="${svgW-padR}" y2="${yy}" stroke="#29415f" stroke-width="1"/><text x="4" y="${yy+4}" fill="#9fb3ca" font-size="11">${p}%</text>`;}
+    let labels='';
+    for(let j=0;j<n;j++){if(j%2===0||n<=6){labels+=`<text x="${x(j)}" y="${svgH-16}" text-anchor="middle" fill="#9fb3ca" font-size="11">${j===0?'NU':hour(h.time[idx+j])}</text>`;}}
+    let tempDots='';
+    tVals.forEach((v,j)=>{if(Number.isFinite(v))tempDots+=`<circle cx="${x(j)}" cy="${yT(v)}" r="3.5" fill="#fbbf24"/>`;});
+    $v('v50SvgWrap').innerHTML=`<svg viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}" role="img" aria-label="12-uurs weertrend">
+      ${grid}
+      <polyline points="${tempPts}" fill="none" stroke="#fbbf24" stroke-width="3"/>
+      <polyline points="${rainPts}" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="7 4"/>
+      <polyline points="${windPts}" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="3 4"/>
+      ${tempDots}${labels}
+      <text x="${padL}" y="15" fill="#fbbf24" font-size="12">🌡 temperatuur (${tMin}–${tMax}°C)</text>
+      <text x="${svgW/2}" y="15" text-anchor="middle" fill="#38bdf8" font-size="12">🌧 regenkans</text>
+      <text x="${svgW-padR}" y="15" text-anchor="end" fill="#a78bfa" font-size="12">💨 wind</text>
+    </svg>`;
+    $v('v50ChartInfo').textContent=`V50 • ${n} uur vooruit • temperatuur, regenkans en wind visueel vergeleken.`;
     const cur=Number(d.current?.temperature_2m), end=Number(temps[idx+n-1]),delta=Number.isFinite(cur)&&Number.isFinite(end)?end-cur:0;
     let headline='De komende 12 uur verandert het weer maar weinig.';
     if(maxRain>=70) headline=`🌧️ De grootste regenkans ligt rond ${hour(h.time[idx+rainAt])}, met ongeveer ${Math.round(maxRain)}% kans.`;
@@ -21,7 +53,7 @@
     const windText=maxGust>=45?`De windstoten kunnen oplopen tot ongeveer ${Math.round(maxGust)} km/u.`:'De wind blijft de komende uren overwegend beheersbaar.';
     const tempText=Math.abs(delta)>=2?`De temperatuur verandert merkbaar richting ${end.toFixed(1)}°C.`:'De temperatuur blijft redelijk stabiel.';
     $v('v49Narrative').innerHTML=`<b>🧠 AI-uitleg</b><br>${rainText} ${windText} ${tempText}`;
-    $v('v48Status').textContent='V49 • bijgewerkt '+new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+    $v('v48Status').textContent='V50 • bijgewerkt '+new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
   };
   function v48Search(){const city=$v('v48City')?.value.trim();if(!city)return;const main=$v('city');if(main){main.value=city;const btn=$v('analyse');if(btn)btn.click();else if(typeof analyse==='function')analyse();}}
   $v('v48Search')?.addEventListener('click',v48Search);$v('v48Now')?.addEventListener('click',()=>{$v('analyse')?.click()});$v('v48City')?.addEventListener('keydown',e=>{if(e.key==='Enter')v48Search()});
