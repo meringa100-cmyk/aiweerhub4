@@ -1,0 +1,75 @@
+ if(!times.length || !s0.length){$('smartSoilFrost').textContent='⚠️ Bodemvorstanalyse tijdelijk niet beschikbaar.';return;}
+ const finiteMin=a=>{const vals=a.filter(Number.isFinite);return vals.length?Math.min(...vals):NaN};
+ const mins={s0:finiteMin(s0),s6:finiteMin(s6),s18:finiteMin(s18),air:finiteMin(air)};
+ const frostHours=a=>a.filter(v=>Number.isFinite(v)&&v<=0).length;
+ const nearHours=a=>a.filter(v=>Number.isFinite(v)&&v<=2).length;
+ let risk='🟢 Geen duidelijke bodemvorst verwacht', score=0;
+ if(mins.s0<=0)score+=3; else if(mins.s0<=2)score+=2;
+ if(mins.s6<=0)score+=4; else if(mins.s6<=2)score+=2;
+ if(mins.s18<=0)score+=5; else if(mins.s18<=2)score+=1;
+ if(mins.air<=0)score+=1;
+ const coldIdx=air.reduce((best,v,i)=>Number.isFinite(v)&&(!Number.isFinite(air[best])||v<air[best])?i:best,0);
+ const cloudAt=Number(cloud[coldIdx]), windAt=Number(wind[coldIdx]), dewAt=Number(dew[coldIdx]), airAt=Number(air[coldIdx]);
+ // Extra cooling signal: clear/dry/light-wind nights are more supportive of surface cooling.
+ if(Number.isFinite(cloudAt)&&cloudAt<35)score+=1;
+ if(Number.isFinite(windAt)&&windAt<12)score+=1;
+ if(Number.isFinite(airAt)&&Number.isFinite(dewAt)&&airAt-dewAt<2.5)score+=1;
+ if(score>=7 || mins.s18<=0)risk='🔴 Serieuze bodemvorstkans';
+ else if(score>=4 || mins.s6<=0)risk='🟠 Bodemvorst mogelijk';
+ else if(score>=2 || mins.s0<=2 || mins.s6<=2)risk='🟡 Nabij bodemvorst';
+ const layers=[];
+ if(mins.s0<=0)layers.push('oppervlak');
+ if(mins.s6<=0)layers.push('6 cm');
+ if(mins.s18<=0)layers.push('18 cm');
+ const coldLayer=[['0 cm',mins.s0],['6 cm',mins.s6],['18 cm',mins.s18]].filter(x=>Number.isFinite(x[1])).sort((a,b)=>a[1]-b[1])[0];
+ const coldTime=coldLayer?(()=>{const arr=coldLayer[0]==='0 cm'?s0:coldLayer[0]==='6 cm'?s6:s18;let bi=0;for(let i=1;i<arr.length;i++)if(Number.isFinite(arr[i])&&arr[i]<arr[bi])bi=i;return times[bi]?new Date(times[bi]):null;})():null;
+ let advice='🌱 Kwetsbare planten lijken voorlopig niet specifiek door bodemvorst bedreigd.';
+ if(mins.s18<=0) advice='🛡️ Diepere bodemvorst verwacht: bescherm vorstgevoelige planten en wortelzones extra.';
+ else if(mins.s6<=0) advice='🛡️ Kans op vorst in de ondiepe bodem: let vooral op jonge/vorstgevoelige planten.';
+ else if(mins.s0<=0) advice='🧊 Vooral oppervlaktevorst mogelijk; potplanten en kwetsbare bladeren kunnen wel schade oplopen.';
+ else if(mins.s0<=2 || mins.s6<=2) advice='👀 De bodem komt dicht bij het vriespunt. Kwetsbare planten even extra in de gaten houden.';
+ const detail=[];
+ if(Number.isFinite(mins.s0))detail.push(`0 cm min ${mins.s0.toFixed(1)}°C`);
+ if(Number.isFinite(mins.s6))detail.push(`6 cm min ${mins.s6.toFixed(1)}°C`);
+ if(Number.isFinite(mins.s18))detail.push(`18 cm min ${mins.s18.toFixed(1)}°C`);
+ if(Number.isFinite(mins.air))detail.push(`lucht min ${mins.air.toFixed(1)}°C`);
+ const atmosphere=Number.isFinite(cloudAt)&&Number.isFinite(windAt)?`Koudste lucht rond ${coldTime?coldTime.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'onbekend'}; bewolking ${Math.round(cloudAt)}%, wind ${Math.round(windAt)} km/u.`:'';
+ $('smartSoilFrost').innerHTML=`<b>${risk}</b> • ${advice}`;
+ $('smartSoilFrostDetail').innerHTML=`${detail.join(' • ')}${coldLayer&&coldTime?`<br>❄️ Koudste bodemlaag: <b>${coldLayer[0]}</b> om ${coldTime.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} (${coldLayer[1].toFixed(1)}°C).`:''}<br>${atmosphere}<br><span style="opacity:.7">Modelinschatting voor de gekozen locatie; bodemvorst is niet hetzelfde als alleen nachtvorst aan de lucht.</span>`;
+}
+
+function renderExtras(d,aiTemp=null,aiRain=null,aiWind=null,aiConfidence=null){const h=d.hourly,idx=nearestIndex(h.time);const wind=d.current.wind_speed_10m,gust=d.current.wind_gusts_10m??wind,deg=d.current.wind_direction_10m;const maxG=Math.max(...(h.wind_gusts_10m||[]).slice(idx,idx+12));$('windCenter').innerHTML=`<div style="font-size:40px;text-align:center">${windArrowSymbol(deg)}</div><b>${Math.round(wind)} km/u</b> • ${windDir(deg)} (${Math.round(deg)}°)<br>💨 Windstoten nu <b>${Math.round(gust)} km/u</b><br>🌬️ Beaufort <b>${beaufort(wind)}</b><br><span class="muted">Komende 12 uur maximaal ${Math.round(maxG||gust)} km/u windstoten.</span>`;const uv=Math.max(...(h.uv_index||[]).slice(idx,idx+12));const cloud=h.cloud_cover?.[idx];const daily=d.daily||{};$('sun').innerHTML=`🌅 Zonsopkomst <b>${fmtTime(daily.sunrise?.[0])}</b><br>🌇 Zonsondergang <b>${fmtTime(daily.sunset?.[0])}</b><br>☀️ Zonuren vandaag <b>${daily.sunshine_duration?.[0]!=null?(daily.sunshine_duration[0]/3600).toFixed(1):'--'} uur</b><br>🕶️ Maximale UV-index <b>${uv.toFixed(1)}</b> — ${uvText(uv)}<br>☁️ Bewolking nu <b>${cloud??'--'}%</b>`;const stormCodes=(h.weather_code||[]).slice(idx,idx+12).filter(c=>c>=95).length;const cape=Math.max(...(h.cape||[]).slice(idx,idx+12),0);$('storm').innerHTML=stormCodes?`⚡ ${stormCodes} uur/uren met een onweercode in de komende 12 uur.`:'🟢 Geen onweercode in de komende 12 uur.';if(cape>500)$('storm').innerHTML+=`<br>🌩️ CAPE maximaal ongeveer ${Math.round(cape)} J/kg; dat wijst op meer atmosferische onstabiliteit.`;$('storm').innerHTML+='<br><span class="muted">Dit is geen directe bliksemdetectie.</span>';const conf=aiConfidence!=null?Number(aiConfidence):(Number($('conf').textContent.replace(/\D/g,''))||0);const temp=aiTemp!=null?Number(aiTemp):Number(d.current.temperature_2m);const rain=aiRain!=null?Number(aiRain):Math.max(...h.precipitation_probability.slice(idx,idx+12));const aiWindNow=aiWind!=null?Number(aiWind):Number(d.current.wind_speed_10m);let text=`In ${currentLocation?.name||'de gekozen plaats'} is het volgens de actuele AI-combinatie nu ongeveer ${temp.toFixed(1)}°C, met ${code(d.current.weather_code).replace(/^\S+\s/,'')}. `;text+=rain>=70?'De kans op regen is de komende uren duidelijk aanwezig. ':rain>=40?'Er is een redelijke kans op regen. ':'De regenkans blijft voorlopig beperkt. ';text+=aiWindNow>=55?'De wind kan stevig zijn. ':aiWindNow>=35?'De wind kan soms flink aantrekken. ':'';text+=uv>=6?`De zonkracht kan oplopen tot UV ${uv.toFixed(1)}. `:'';text+=conf>=80?'De modellen liggen behoorlijk dicht bij elkaar, dus de actuele AI-inschatting is relatief stabiel.':conf>=60?'De modellen verschillen wat van elkaar; de actuele AI-temperatuur is daarom een samengestelde inschatting.':'De modellen verschillen duidelijk; neem de actuele AI-temperatuur met wat extra voorzichtigheid.';$('humanAI').textContent=text}
+function beaufort(kmh){if(kmh<1)return 0;if(kmh<6)return 1;if(kmh<12)return 2;if(kmh<20)return 3;if(kmh<29)return 4;if(kmh<39)return 5;if(kmh<50)return 6;if(kmh<62)return 7;if(kmh<75)return 8;if(kmh<89)return 9;if(kmh<103)return 10;if(kmh<118)return 11;return 12}
+function windArrowSymbol(deg){return Number.isFinite(deg)?['↑','↗','→','↘','↓','↙','←','↖'][Math.round(deg/45)%8]:'•'}
+function uvText(u){if(u<3)return'laag';if(u<6)return'matig';if(u<8)return'hoog';if(u<11)return'zeer hoog';return'extreem'}
+function fmtTime(v){return v?new Date(v).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'--:--'}
+
+let radarMap=null, radarLayer=null, radarMarker=null;
+async function radar(lat,lon){try{const box=$('radar');box.innerHTML='';if(typeof L==='undefined')throw Error('Kaartbibliotheek kon niet laden');if(radarMap)radarMap.remove();radarMap=L.map(box,{zoomControl:true,attributionControl:true,scrollWheelZoom:true}).setView([lat,lon],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(radarMap);radarMarker=L.marker([lat,lon]).addTo(radarMap).bindPopup('📍 '+(currentLocation?.name||'Gekozen locatie')).openPopup();const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');if(!r.ok)throw Error('RainViewer '+r.status);const d=await r.json();const f=d.radar?.past?.at(-1);if(!f)throw Error('geen radarframe');const tileUrl=d.host+f.path+'/{z}/{x}/{y}/2/1_1.png';radarLayer=L.tileLayer(tileUrl,{opacity:.62,maxZoom:7,tileSize:256,attribution:'Radar © RainViewer'}).addTo(radarMap);radarMap.setView([lat,lon],10);setTimeout(()=>radarMap.invalidateSize(),100);log('✔ Kaart automatisch gecentreerd op '+Number(lat).toFixed(3)+', '+Number(lon).toFixed(3)+' • zoom 10');log('✔ RainViewer-radar als transparante kaartlaag toegevoegd')}catch(e){$('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';log('⚠ Radar: '+e.message)}}
+async function analyse(){ $('log').innerHTML='';const place=$('city').value.trim()||'Emmen';try{log('📍 Locatie zoeken: '+place);const g=await geocode(place);currentLocation={name:g.name,latitude:g.latitude,longitude:g.longitude,timezone:g.timezone||'auto'};const name=g.name+(g.admin1?', '+g.admin1:'');$('locationInfo').textContent='📍 '+Number(g.latitude).toFixed(3)+', '+Number(g.longitude).toFixed(3)+' • '+(g.timezone||'lokale tijd');log('✔ Eén locatiepakket aangemaakt voor alle systemen');log('🌍 '+name+' → alle modellen krijgen dezelfde coördinaten en lokale tijdzone');const [base,models,skill]=await Promise.all([baseWeather(g.latitude,g.longitude,g.timezone),loadModels(g.latitude,g.longitude,g.timezone),learnModels(g.latitude,g.longitude,g.timezone)]);renderBase(base,name,models.confidence,models.weightedTemp,models.weightedRain,models.weightedWind,models.agreement);renderSoilTemperature(base);updateSmartSoil(base);renderSoilFrost(base);renderTopSoilFrost(base);renderExtras(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);renderSurprises(base);renderV36Insights(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);log('✔ V36 slimme buienvenster- en omslaganalyse uitgevoerd');log('✔ Bodemtemperatuur op 0 / 6 / 18 / 54 cm verwerkt');log('✔ 48-uurs bodemtemperatuurtrend berekend');log('✔ Bodemvorst-AI bovenaan berekend met bodem + lucht + dauwpunt + wind + bewolking');log('✔ Open-Meteo basis bijgewerkt');log('✔ ECMWF / HARMONIE / ICON / GFS vergeleken voor dezelfde locatie');log('✔ Historische kalibratie bijgewerkt voor deze locatie');await radar(g.latitude,g.longitude);log('✔ Radar eveneens naar dezelfde locatie verplaatst')}catch(e){$('summary').textContent='De live analyse kon niet volledig worden uitgevoerd.';log('❌ '+e.message)}}
+$('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};analyse();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+ window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js')
+ .then(()=>console.log('AI WeerHub V47 PWA actief'))
+ .catch(e=>console.warn('PWA:',e)));
+}
+</script>
+<script>
+(function(){
+  const $v=id=>document.getElementById(id);
+  function v49WeatherIcon(c){c=Number(c);if(c===0)return'☀️';if(c<=3)return'🌤️';if(c<=48)return'🌫️';if(c<=67)return'🌧️';if(c<=77)return'🌨️';if(c<=82)return'🌦️';if(c>=95)return'⛈️';return'🌦️'}
+  function hour(t){return new Date(t).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}
+  function card(label,icon,value,sub){return `<div style="background:#0b1729;border:1px solid #29415f;border-radius:12px;padding:10px"><div style="font-size:12px;color:#9fb3ca">${icon} ${label}</div><b style="font-size:18px">${value}</b><div style="font-size:11px;color:#9fb3ca">${sub}</div></div>`}
+  window.v48Run=function(){
+    const d=window.__AIWEATHER_LAST;
+    if(!d?.hourly?.time)return;
+    const h=d.hourly,idx=typeof nearestIndex==='function'?nearestIndex(h.time):0,n=Math.min(12,h.time.length-idx);
+    if(n<=0)return;
+    const temps=h.temperature_2m||[],rains=h.precipitation_probability||[],winds=h.wind_speed_10m||[],codes=h.weather_code||[],gusts=h.wind_gusts_10m||[],prec=h.precipitation||[];
+    let maxRain=-1,rainAt=0,maxGust=-1,gustAt=0,minT=999,maxT=-999,totalRain=0,rainHours=0;
+    const cards=[];
+    for(let j=0;j<n;j++){
+      const i=idx+j,temp=Number(temps[i]),rain=Number(rains[i]??0),wind=Number(winds[i]??0),gust=Number(gusts[i]??wind),code=Number(codes[i]),pr=Number(prec[i]??0);
+      if(rain>maxRain){maxRain=rain;rainAt=j} if(gust>maxGust){maxGust=gust;gustAt=j}
