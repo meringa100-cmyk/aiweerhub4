@@ -1,0 +1,75 @@
+   const dt=new Date(times[j]);
+   const fmt=dt.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+   const day=dt.toLocaleDateString('nl-NL',{weekday:'short'});
+   const cells=series.map(([,arr])=>{
+     const v=Number(arr[idx+j]);
+     return Number.isFinite(v)?`${v.toFixed(1)}°`:'--';
+   });
+   table+=`<tr><td><b>${day}</b> ${fmt}</td>${cells.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+ }
+ table+=`</table></div>`;
+
+ const trend=(arr)=>{
+   const first=Number(arr[idx]), end=Number(arr[Math.min(idx+47,arr.length-1)]);
+   if(!Number.isFinite(first)||!Number.isFinite(end)) return 'geen trend';
+   const d=end-first;
+   return `${d>=0?'+':''}${d.toFixed(1)}°C over 48 uur`;
+ };
+ const s6trend=trend(h.soil_temperature_6cm||[]);
+ const s18trend=trend(h.soil_temperature_18cm||[]);
+ let garden;
+ const future6=(h.soil_temperature_6cm||[]).slice(idx,idx+48).map(Number).filter(Number.isFinite);
+ if(future6.length){
+   const min6=Math.min(...future6),max6=Math.max(...future6);
+   if(min6<2) garden=`🥶 6 cm kan onder 2°C komen (${min6.toFixed(1)}°C).`;
+   else if(min6<7) garden=`🧊 6 cm blijft koel: minimum ongeveer ${min6.toFixed(1)}°C.`;
+   else if(max6>=18) garden=`🌱 6 cm kan oplopen tot ongeveer ${max6.toFixed(1)}°C.`;
+   else garden=`🌱 6 cm blijft de komende 48 uur tussen ${min6.toFixed(1)} en ${max6.toFixed(1)}°C.`;
+ } else garden='Geen 48-uurs bodemtrend beschikbaar.';
+ $('soilForecast').innerHTML=`<div class="notice"><b>48-uurs trend</b><br>6 cm: ${s6trend} • 18 cm: ${s18trend}<br>${garden}</div>${table}`;
+}
+
+
+function renderSoilFrost(d){
+ const h=d.hourly||{}, idx=nearestIndex(h.time||[]), hours=48;
+ const defs=[
+   {key:'soil_temperature_0cm',label:'oppervlak (0 cm)'},
+   {key:'soil_temperature_6cm',label:'ondiep (6 cm)'},
+   {key:'soil_temperature_18cm',label:'wortelzone (18 cm)'}
+ ];
+ const risks=defs.map(def=>{
+   const arr=(h[def.key]||[]).slice(idx,idx+hours).map(Number).filter(Number.isFinite);
+   if(!arr.length)return {...def,min:NaN,firstBelow:null,lastBelow:null,duration:0};
+   let min=Infinity,minIndex=-1,firstBelow=null,lastBelow=null,duration=0;
+   arr.forEach((v,i)=>{if(v<min){min=v;minIndex=i;} if(v<=0){if(firstBelow===null)firstBelow=i;lastBelow=i;duration++;}});
+   return {...def,min,minIndex,firstBelow,lastBelow,duration};
+ });
+ const times=(h.time||[]).slice(idx,idx+hours);
+ const when=i=>i!=null&&times[i]?new Date(times[i]).toLocaleString('nl-NL',{weekday:'short',hour:'2-digit',minute:'2-digit'}):'--';
+ const frost=risks.filter(r=>Number.isFinite(r.min)&&r.min<=0);
+ const near=risks.filter(r=>Number.isFinite(r.min)&&r.min>0&&r.min<=2);
+ let level='🟢 Geen bodemvorst verwacht';
+ let text='De bodem blijft volgens de 48-uurs modelverwachting boven 0°C op 0, 6 en 18 cm.';
+ if(frost.length){
+   const deepest=frost.reduce((a,b)=>({min:Math.min(a.min,b.min),depth:b.min<=a.min?b.depth:a.depth}),{min:Infinity,depth:''});
+   const surface=frost.find(r=>r.key==='soil_temperature_0cm');
+   const shallow=frost.find(r=>r.key==='soil_temperature_6cm');
+   const deep=frost.find(r=>r.key==='soil_temperature_18cm');
+   level=deep?'🔴 Diepere bodemvorst mogelijk':shallow?'🟠 Bodemvorst tot circa 6 cm mogelijk':'🟡 Oppervlaktevorst mogelijk';
+   const main=deep||shallow||surface;
+   text=`Koudste berekende bodemlaag: <b>${main.label}</b>, ${main.min.toFixed(1)}°C rond <b>${when(main.minIndex)}</b>.`;
+   if(main.duration) text+=` In de 48-uurs reeks zijn ongeveer <b>${main.duration} uur</b> op of onder 0°C berekend.`;
+   if(deep) text+=' Dit wijst op vorst die volgens het model dieper kan doordringen dan alleen het oppervlak.';
+   else if(shallow) text+=' De vorst blijft volgens het model vooral in de bovenste bodemlaag.';
+   else text+=' De vorst lijkt volgens het model vooral aan het bodemoppervlak te blijven.';
+ } else if(near.length){
+   const cold=near.reduce((a,b)=>a.min<b.min?a:b);
+   level='🟠 Bijna-bodemvorst';
+   text=`De koudste berekende laag komt rond <b>${cold.min.toFixed(1)}°C</b> uit (${cold.label}), rond <b>${when(cold.minIndex)}</b>. Kwetsbare planten kunnen dan extra aandacht nodig hebben.`;
+ } else if(risks.some(r=>Number.isFinite(r.min))){
+   const cold=risks.filter(r=>Number.isFinite(r.min)).reduce((a,b)=>a.min<b.min?a:b);
+   text=`De bodem blijft boven 2°C. De koudste laag is ${cold.label} met ongeveer ${cold.min.toFixed(1)}°C.`;
+ }
+ let advice='🌱 Voor normale beplanting is geen directe vorstmaatregel zichtbaar.';
+ if(frost.length) advice='🪴 Bescherm vorstgevoelige planten, potten en jonge aanplant. Dek kwetsbare planten tijdig af en let vooral op de genoemde diepte.';
+ else if(near.length) advice='🌿 Houd vorstgevoelige planten vannacht in de gaten; de bodem komt dicht bij het vriespunt.';
