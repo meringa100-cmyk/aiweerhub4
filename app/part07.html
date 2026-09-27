@@ -44,7 +44,7 @@ function windArrowSymbol(deg){return Number.isFinite(deg)?['↑','↗','→','�
 function uvText(u){if(u<3)return'laag';if(u<6)return'matig';if(u<8)return'hoog';if(u<11)return'zeer hoog';return'extreem'}
 function fmtTime(v){return v?new Date(v).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'--:--'}
 
-let radarMap=null,radarLayer=null,radarMarker=null,cloudControl=null,cloudLayer=null,radarTimer=null;
+let radarMap=null,radarLayer=null,radarMarker=null,cloudControl=null,cloudLayer=null,radarTimer=null,knmiRadarLayer=null;
 
 function cloudClass(v){
   v=Number(v);
@@ -86,14 +86,18 @@ async function updateCloudInfo(){
   }catch(e){log('⚠ Bewolking: '+e.message)}
 }
 
-/*
- * Radar V60: terug naar de officiële RainViewer/Leaflet aanpak.
- * RainViewer ondersteunt radar-tiles tot native zoom 7.
- * Leaflet schaalt die tiles automatisch bij lagere/hogere kaartzoom.
- * We gebruiken dus GEEN coordinate-image overlay meer; die verschoof
- * geografisch tijdens zoomen omdat een losse afbeelding opnieuw werd
- * berekend rond het huidige kaartcentrum.
- */
+function radarZoomMode(){
+  if(!radarMap)return;
+  const z=radarMap.getZoom();
+  if(z<7){
+    if(radarLayer && radarMap.hasLayer(radarLayer))radarMap.removeLayer(radarLayer);
+    if(knmiRadarLayer && !radarMap.hasLayer(knmiRadarLayer))knmiRadarLayer.addTo(radarMap);
+  }else{
+    if(knmiRadarLayer && radarMap.hasLayer(knmiRadarLayer))radarMap.removeLayer(knmiRadarLayer);
+    if(radarLayer && !radarMap.hasLayer(radarLayer))radarLayer.addTo(radarMap);
+  }
+}
+
 async function radar(lat,lon){
   try{
     const box=$('radar');
@@ -105,7 +109,7 @@ async function radar(lat,lon){
       zoomControl:true,
       attributionControl:true,
       scrollWheelZoom:true,
-      minZoom:7,
+      minZoom:1,
       maxZoom:19,
       worldCopyJump:true
     }).setView([lat,lon],10);
@@ -125,10 +129,6 @@ async function radar(lat,lon){
     const f=d.radar?.past?.at(-1);
     if(!f)throw Error('geen radarframe');
 
-    /*
-     * Exact patroon uit het officiële RainViewer Leaflet-voorbeeld:
-     * {z}/{x}/{y}, maxNativeZoom 7, maxZoom hoger.
-     */
     const tileUrl=d.host+f.path+'/{z}/{x}/{y}/2/1_1.png';
     radarLayer=L.tileLayer(tileUrl,{
       tileSize:256,
@@ -139,48 +139,37 @@ async function radar(lat,lon){
       updateWhenZooming:false,
       updateWhenIdle:true,
       attribution:'Radar © RainViewer'
-    }).addTo(radarMap);
+    });
 
-    cloudControlEnsure();
-    radarMap.on('moveend zoomend',()=>{
+    // KNMI-lage-zoom fallback. KNMI publiceert actuele radarproducten
+    // iedere 5 minuten; deze laag wordt alleen gebruikt onder zoom 7.
+    knmiRadarLayer=L.tileLayer.wms('https://api.dataplatform.knmi.nl/wms/adaguc-server',{
+      layers:'radar_reflectivity_composites',
+      format:'image/png',
+      transparent:true,
+      opacity:.58,
+      version:'1.1.1',
+      attribution:'Radar © KNMI'
+    });
+
+    radarLayer.addTo(radarMap);
+    radarMap.on('zoomend moveend',()=>{
+      radarZoomMode();
       clearTimeout(radarTimer);
       radarTimer=setTimeout(updateCloudInfo,250);
     });
 
+    cloudControlEnsure();
     await updateCloudInfo();
-    setTimeout(()=>radarMap.invalidateSize(),100);
+    setTimeout(()=>{
+      radarMap.invalidateSize();
+      radarZoomMode();
+    },100);
 
-    log('✔ Radar V60: officiële RainViewer tile-aanpak');
-    log('✔ Radar stabiel: RainViewer native zoom 7; daarboven schaalt Leaflet de radar geografisch vast');
+    log('✔ Radar V62: RainViewer vanaf zoom 7 + KNMI fallback onder zoom 7');
+    log('✔ Lage zoom gebruikt KNMI-WMS zodat uitzoomen niet meer tegen RainViewer aanloopt');
   }catch(e){
     $('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';
     log('⚠ Radar: '+e.message);
   }
-}
-async function analyse(){ $('log').innerHTML='';const place=$('city').value.trim()||'Emmen';try{log('📍 Locatie zoeken: '+place);const g=await geocode(place);currentLocation={name:g.name,latitude:g.latitude,longitude:g.longitude,timezone:g.timezone||'auto'};const name=g.name+(g.admin1?', '+g.admin1:'');$('locationInfo').textContent='📍 '+Number(g.latitude).toFixed(3)+', '+Number(g.longitude).toFixed(3)+' • '+(g.timezone||'lokale tijd');log('✔ Eén locatiepakket aangemaakt voor alle systemen');log('🌍 '+name+' → alle modellen krijgen dezelfde coördinaten en lokale tijdzone');const [base,models,skill]=await Promise.all([baseWeather(g.latitude,g.longitude,g.timezone),loadModels(g.latitude,g.longitude,g.timezone),learnModels(g.latitude,g.longitude,g.timezone)]);renderBase(base,name,models.confidence,models.weightedTemp,models.weightedRain,models.weightedWind,models.agreement);renderSoilTemperature(base);updateSmartSoil(base);renderSoilFrost(base);renderTopSoilFrost(base);renderExtras(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);renderSurprises(base);renderV36Insights(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);log('✔ V36 slimme buienvenster- en omslaganalyse uitgevoerd');log('✔ Bodemtemperatuur op 0 / 6 / 18 / 54 cm verwerkt');log('✔ 48-uurs bodemtemperatuurtrend berekend');log('✔ Bodemvorst-AI bovenaan berekend met bodem + lucht + dauwpunt + wind + bewolking');log('✔ Open-Meteo basis bijgewerkt');log('✔ ECMWF / HARMONIE / ICON / GFS vergeleken voor dezelfde locatie');log('✔ Historische kalibratie bijgewerkt voor deze locatie');await radar(g.latitude,g.longitude);log('✔ Radar eveneens naar dezelfde locatie verplaatst')}catch(e){$('summary').textContent='De live analyse kon niet volledig worden uitgevoerd.';log('❌ '+e.message)}}
-$('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};analyse();
-</script>
-<script>
-if ('serviceWorker' in navigator) {
- window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js')
- .then(()=>console.log('AI WeerHub V47 PWA actief'))
- .catch(e=>console.warn('PWA:',e)));
-}
-</script>
-<script>
-(function(){
-  const $v=id=>document.getElementById(id);
-  function v49WeatherIcon(c){c=Number(c);if(c===0)return'☀️';if(c<=3)return'🌤️';if(c<=48)return'🌫️';if(c<=67)return'🌧️';if(c<=77)return'🌨️';if(c<=82)return'🌦️';if(c>=95)return'⛈️';return'🌦️'}
-  function hour(t){return new Date(t).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}
-  function card(label,icon,value,sub){return `<div style="background:#0b1729;border:1px solid #29415f;border-radius:12px;padding:10px"><div style="font-size:12px;color:#9fb3ca">${icon} ${label}</div><b style="font-size:18px">${value}</b><div style="font-size:11px;color:#9fb3ca">${sub}</div></div>`}
-  window.v48Run=function(){
-    const d=window.__AIWEATHER_LAST;
-    if(!d?.hourly?.time)return;
-    const h=d.hourly,idx=typeof nearestIndex==='function'?nearestIndex(h.time):0,n=Math.min(12,h.time.length-idx);
-    if(n<=0)return;
-    const temps=h.temperature_2m||[],rains=h.precipitation_probability||[],winds=h.wind_speed_10m||[],codes=h.weather_code||[],gusts=h.wind_gusts_10m||[],prec=h.precipitation||[];
-    let maxRain=-1,rainAt=0,maxGust=-1,gustAt=0,minT=999,maxT=-999,totalRain=0,rainHours=0;
-    const cards=[];
-    for(let j=0;j<n;j++){
-      const i=idx+j,temp=Number(temps[i]),rain=Number(rains[i]??0),wind=Number(winds[i]??0),gust=Number(gusts[i]??wind),code=Number(codes[i]),pr=Number(prec[i]??0);
-      if(rain>maxRain){maxRain=rain;rainAt=j} if(gust>maxGust){maxGust=gust;gustAt=j}
+}}
