@@ -1,0 +1,75 @@
+      <div style="background:rgba(255,255,255,.10);padding:10px;border-radius:12px">0 cm<br><b id="smartSoil0">--°C</b></div>
+      <div style="background:rgba(255,255,255,.10);padding:10px;border-radius:12px">6 cm<br><b id="smartSoil6">--°C</b></div>
+      <div style="background:rgba(255,255,255,.10);padding:10px;border-radius:12px">18 cm<br><b id="smartSoil18">--°C</b></div>
+      <div style="background:rgba(255,255,255,.10);padding:10px;border-radius:12px">54 cm<br><b id="smartSoil54">--°C</b></div>
+    </div>
+    <div id="smartSoilText" style="margin-top:8px;opacity:.9">Grondtemperatuur wordt berekend...</div>
+  </div>
+  <div style="margin-top:12px;background:rgba(255,255,255,.14);padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.12)">
+    <div style="font-size:16px;font-weight:700">❄️ Bodemvorst-AI</div>
+    <div id="smartSoilFrost" style="margin-top:6px;font-size:15px">Bodemvorst wordt berekend...</div>
+    <div id="smartSoilFrostDetail" class="small" style="margin-top:6px;opacity:.82">Bodemtemperatuur + luchttemperatuur + dauwpunt + wind + bewolking.</div>
+  </div>
+</section>
+
+<section id="v48Controls" style="max-width:1100px;margin:0 auto 14px;padding:12px 14px;border-radius:16px;background:#132238;box-shadow:0 5px 18px rgba(0,0,0,.15);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+  <input id="v48City" value="Emmen" placeholder="📍 Zoek plaats..." style="flex:1;min-width:180px;padding:11px;border:0;border-radius:10px;font-size:15px">
+  <button id="v48Search" style="padding:11px 14px;border:0;border-radius:10px;background:#0ea5e9;color:#fff;font-weight:700;cursor:pointer">📍 Zoek locatie</button>
+  <button id="v48Now" style="padding:11px 14px;border:0;border-radius:10px;background:#1d4ed8;color:#fff;font-weight:700;cursor:pointer">🔄 Nu verversen</button>
+  <span id="v48Status" style="font-size:12px;color:#a9bbcf">V49 • slimme 12-uursanalyse</span>
+</section>
+
+<section id="v48Timeline" style="max-width:1100px;margin:0 auto 18px;padding:16px;border-radius:18px;background:#132238;box-shadow:0 5px 20px rgba(0,0,0,.18)">
+  <h2 style="margin-top:0">🔮 Wat gaat er de komende 12 uur gebeuren?</h2>
+  <p id="v48Headline" class="muted">De AI bouwt de verwachting op...</p><div id="v49Summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin:10px 0"></div>
+  <div id="v48Hours" style="display:grid;grid-template-columns:repeat(12,minmax(78px,1fr));gap:7px;overflow-x:auto"></div>
+  <div id="v48Warnings" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px"></div><div id="v49Narrative" style="margin-top:10px;padding:12px;border-radius:12px;background:#0b1729;line-height:1.5"></div>
+</section>
+
+<section id="topRadar" class="card wide" style="max-width:1100px;margin:0 auto 18px;padding:16px;"><h2>🛰️ Regenradar + kaart</h2><div id="radar" class="radarbox"><div class="notice">⏳ Kaart en live radar laden...</div></div><div class="legend"><span>🗺️ Kaart</span><span>🌧️ Radaroverlay</span><span>📍 Gekozen locatie</span></div><p class="muted">De kaart centreert en zoomt automatisch op de gekozen plaats. De radar wordt als transparante laag bovenop de kaart gelegd. Radarbron: RainViewer.</p></section>
+
+<header class="hidden-after-map"><h1>🌦️ AI WeerHub Pro V43 — AI Weercentrum</h1><div class="toolbar"><input id="city" value="Emmen" placeholder="Plaats"><button id="analyse">🔄 Live analyse</button><button id="scan">🛰️ Wereldscan</button></div></header>
+<main class="hidden-after-map"><div class="grid">
+<section class="card"><h2 id="place">Emmen</h2><p class="pill" id="locationInfo">📍 Coördinaten laden...</p><div class="big" id="temp">--°C</div><p id="current">Live gegevens laden...</p><p class="small muted" id="updated">⏱️ Laatst bijgewerkt: --:--:--</p><div id="windNow" class="notice">💨 Wind laden...</div><span class="badge" id="conf">AI --%</span><p class="muted">Het AI-percentage is gebaseerd op overeenstemming tussen de aangesloten modeluitvoer; geen garantie.</p></section>
+<section class="card"><h2>🤖 AI conclusie</h2><p id="summary">Nog geen analyse.</p><div class="bar"><i id="confbar"></i></div><p id="advice"></p></section>
+<section class="card"><h2>📡 Bronstatus</h2><table id="sources"><tr><th>Model</th><th>Status</th><th>Levering</th></tr><tr><td>Open-Meteo basis</td><td id="om">⏳</td><td>Live basis</td></tr><tr><td>KNMI HARMONIE AROME NL</td><td id="harmonie">⏳</td><td>2 km-model via Open-Meteo</td></tr><tr><td>ECMWF IFS HRES</td><td id="ecmwf">⏳</td><td>9 km-model via Open-Meteo</td></tr><tr><td>DWD ICON EU</td><td id="icon">⏳</td><td>Model via Open-Meteo</td></tr><tr><td>NCEP GFS</td><td id="gfs">⏳</td><td>Model via Open-Meteo</td></tr></table></section>
+<section class="card wide"><h2>🧠 Live modelvergelijking</h2><p class="muted">De AI kijkt naar dezelfde locatie en hetzelfde tijdstip en vergelijkt temperatuur, neerslagkans en wind.</p><div id="models" class="models"></div><div id="spread" class="spread">⏳ Modelspreiding wordt berekend...</div></section>
+<section class="card wide"><h2>🧠 Zelflerende modelgewichten</h2><p class="muted">De Hub vergelijkt recente voorspellingen van de modellen met historische weerdata en gebruikt de foutmarge om de gewichten aan te passen. Dit is transparante statistische kalibratie, geen getraind neuraal netwerk.</p><div id="learning" class="models"><div class="mini">⏳ Historische modelprestatie laden...</div></div><div id="learningNote" class="spread">Nog geen kalibratie uitgevoerd.</div></section>
+
+<section class="card wide"><h2>🌱 Bodemtemperatuur</h2>
+<div id="soilTemp" class="notice">Bodemtemperatuur laden...</div>
+<p class="small muted">Modelmatige bodemtemperatuur op verschillende dieptes. De 0 cm-laag is de oppervlakte; dieper in de bodem reageert de temperatuur trager op het weer.</p>
+<section class="card wide"><h2>📈🌱 Bodemtemperatuur komende 48 uur</h2>
+<div id="soilForecast" class="notice">Bodemverwachting laden...</div>
+</section>
+<section class="card wide"><h2>❄️ Bodemvorst & tuinwaarschuwing</h2>
+<div id="soilFrost" class="notice">Bodemvorst analyseren...</div>
+</section>
+</section>
+<section class="card"><h2>💨 Windcentrum</h2><div id="windCenter" class="notice">Windanalyse laden...</div></section>
+<section class="card"><h2>☀️ Zon & UV</h2><div id="sun" class="notice">Zon- en UV-gegevens laden...</div></section>
+<section class="card"><h2>⛈️ Onweer & atmosfeer</h2><div id="storm" class="notice">Onweeranalyse laden...</div></section>
+<section class="card wide"><h2>🧠 AI in gewone mensentaal</h2><div id="humanAI" class="notice">Analyse wordt opgebouwd...</div></section>
+<section class="card wide"><h2>📈 24-uurs verwachting</h2><div id="hourly" class="forecast"></div></section>
+<section class="card wide"><h2>🗓️ 7-daagse verwachting</h2><div id="dailyForecast" class="forecast"></div></section>
+<section class="card wide"><h2>💨🌧️ Wind & regen per uur</h2><p class="muted">Een snelle visuele blik op de komende 12 uur. Hoogte = windsnelheid, balk = regenkans.</p><div id="timeline" class="timeline"></div><div class="legendmini"><span>💨 wind</span><span>🌧️ regenkans</span><span>💨💨 hoogste balk = sterkste wind</span></div></section>
+<section class="card"><h2>🚕 TaxiMaat</h2><p id="taxi">Analyse volgt...</p></section><section class="card"><h2>🌱 Tuincoach</h2><p id="garden">Analyse volgt...</p></section><section class="card"><h2>☀️ Zonnepanelen</h2><p id="solar">Analyse volgt...</p></section><section class="card"><h2>⚠️ Waarschuwingen</h2><p id="alerts">Geen analyse.</p></section>
+<section class="card wide"><h2>🧠 AI Mission Log</h2><div id="log" class="log"></div></section>
+</div><div class="footer">V43 • Bodemtemperatuur + 48-uurs bodemverwachting + slimme buienanalyse + radar direct onder het actuele weer • Live actuele waarde + AI-modelwaarde • Eén locatiepakket voor alle aangesloten systemen • Transparante modelvergelijking • V43 bodemtemperatuur + 48-uurs trend + buienvenster/omslaganalyse • KNMI-modeldata wordt via Open-Meteo geleverd; dit is geen rechtstreekse KNMI API-koppeling.</div></main>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+const $=id=>document.getElementById(id);let last=null;let currentLocation=null;let learnedStore=JSON.parse(localStorage.getItem('AIWeerHubWeightsV22')||'{}');
+function locationKey(lat,lon){return Number(lat).toFixed(3)+','+Number(lon).toFixed(3)}
+function weightsFor(lat,lon){const k=locationKey(lat,lon);return learnedStore[k]||{} }
+function saveWeights(lat,lon,w){learnedStore[locationKey(lat,lon)]=w;localStorage.setItem('AIWeerHubWeightsV22',JSON.stringify(learnedStore));}
+function log(s){$('log').innerHTML+=s+'<br>';$('log').scrollTop=$('log').scrollHeight}
+function code(c){if(c===0)return'☀️ helder';if(c<=3)return'🌤️ bewolkt';if(c<=48)return'🌫️ mistig';if(c<=67)return'🌧️ regen';if(c<=77)return'🌨️ sneeuw';if(c<=82)return'🌦️ buien';if(c>=95)return'⛈️ onweer';return'🌦️ wisselvallig'}
+async function geocode(place){const q=encodeURIComponent(place);const r=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+q+'&count=1&language=nl&format=json');if(!r.ok)throw Error('Geocoding '+r.status);const d=await r.json();if(!d.results?.length)throw Error('Plaats niet gevonden');return d.results[0]}
+async function baseWeather(lat,lon,timezone){const tz=encodeURIComponent(timezone||'auto');const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,relative_humidity_2m,apparent_temperature,dew_point_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure&hourly=temperature_2m,dew_point_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index,cloud_cover,cape,soil_temperature_0cm,soil_temperature_6cm,soil_temperature_18cm,soil_temperature_54cm,soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm,soil_moisture_27_to_81cm&daily=sunrise,sunset,sunshine_duration,uv_index_max,weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_gusts_10m_max&forecast_days=7&timezone='+tz;const r=await fetch(url+'&_ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error('Open-Meteo '+r.status);return r.json()}
+const modelDefs={
+ 'KNMI HARMONIE AROME NL':{id:'harmonie',model:'knmi_harmonie_arome_netherlands',role:'2 km NL'},
+ 'ECMWF IFS HRES':{id:'ecmwf',model:'ecmwf_ifs025',role:'9 km'},
+ 'DWD ICON EU':{id:'icon',model:'icon_eu',role:'Europa'},
+ 'NCEP GFS':{id:'gfs',model:'gfs_seamless',role:'globaal'}
+};
