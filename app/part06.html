@@ -1,0 +1,75 @@
+ const h=d.hourly||{},idx=nearestIndex(h.time||[]),times=(h.time||[]).slice(idx,idx+7);
+ const temps=(h.temperature_2m||[]).slice(idx,idx+7),rains=(h.precipitation_probability||[]).slice(idx,idx+7),winds=(h.wind_speed_10m||[]).slice(idx,idx+7),codes=(h.weather_code||[]).slice(idx,idx+7);
+ const t=Number(d.current.temperature_2m),rh=Number(d.current.relative_humidity_2m),wind=Number(d.current.wind_speed_10m),rainNow=Number(d.current.precipitation||0);
+ const dew= t-((100-rh)/5);
+ const dryScore=Math.max(0,Math.min(100,Math.round(100-(rh-35)*1.05-(Math.max(...rains,0))*0.55-wind*0.15-(rainNow>0?20:0))));
+ const dryText=dryScore>=75?'🟢 Goed droogweer':dryScore>=50?'🟡 Redelijk droogweer':'🔴 Slecht droogweer';
+ const dryHint=dryScore>=75?'Wasgoed kan buiten redelijk goed drogen.':dryScore>=50?'Drogen kan, maar het gaat langzaam.':'Buiten drogen wordt waarschijnlijk lastig.';
+ $('smartDry').textContent=`${dryText} (${dryScore}/100). ${dryHint}`;
+ const dewGap=t-dew; const dewText=dewGap<2?'Vochtige lucht: kans op dauw of een klamme nacht.':dewGap<5?'Luchtvochtigheid relatief hoog.':'Droge lucht ten opzichte van de temperatuur.';
+ $('smartDew').textContent=`${dew.toFixed(1)}°C. ${dewText}`;
+ let best=-1,bestScore=-Infinity;
+ for(let i=0;i<times.length;i++){
+   const rr=Number(rains[i]??100),ww=Number(winds[i]??99),tt=Number(temps[i]??t),cc=Number(codes[i]??0);
+   const score=(100-rr)*0.65+Math.max(0,40-ww)*0.55-Math.abs(tt-18)*1.2-(cc>=95?35:0);
+   if(score>bestScore){bestScore=score;best=i;}
+ }
+ if(best>=0){const dt=new Date(times[best]);const label=dt.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});$('smartWindow').textContent=`Rond ${label}: ${Math.round(rains[best]??0)}% regen, ${Math.round(temps[best]??t)}°C en ${Math.round(winds[best]??wind)} km/u wind.`;}else $('smartWindow').textContent='Geen betrouwbaar buitenmoment berekend.';
+ const end=Number(temps.at(-1)); const delta=Number.isFinite(end)?end-t:NaN;
+ $('smartDelta').textContent=Number.isFinite(delta)?`${delta>=0?'+':''}${delta.toFixed(1)}°C over ongeveer 6 uur.`:'Trend niet beschikbaar.';
+}
+
+
+function renderV36Insights(d,aiTemp=null,aiRain=null,aiWind=null,aiConfidence=null){
+ const h=d.hourly||{}, idx=nearestIndex(h.time||[]);
+ const count=Math.min(12,(h.time||[]).length-idx);
+ const times=(h.time||[]).slice(idx,idx+count);
+ const rains=(h.precipitation_probability||[]).slice(idx,idx+count).map(Number);
+ const temps=(h.temperature_2m||[]).slice(idx,idx+count).map(Number);
+ const winds=(h.wind_speed_10m||[]).slice(idx,idx+count).map(Number);
+ const codes=(h.weather_code||[]).slice(idx,idx+count).map(Number);
+ let rainStart=-1,rainEnd=-1;
+ for(let i=0;i<rains.length;i++){
+   if(rains[i]>=45 || codes[i]>=51){if(rainStart<0)rainStart=i;rainEnd=i;}
+   else if(rainStart>=0 && i-rainEnd>=2)break;
+ }
+ if(rainStart>=0){
+   const s=new Date(times[rainStart]),e=new Date(times[rainEnd]);
+   const peak=Math.max(...rains.slice(rainStart,rainEnd+1));
+   $('smartRainWindow').textContent=`Waarschijnlijk venster ${s.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}–${e.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}, piek ${Math.round(peak)}%.`;
+ }else $('smartRainWindow').textContent='Geen duidelijk buienvenster in de komende 12 uur.';
+ let largest=-1,scoreBest=0;
+ for(let i=1;i<times.length;i++){
+   const score=Math.abs(temps[i]-temps[i-1])*4+Math.abs(rains[i]-rains[i-1])*.35+Math.abs(winds[i]-winds[i-1])*.8;
+   if(score>scoreBest){scoreBest=score;largest=i;}
+ }
+ if(largest>0){
+   const parts=[],dt=temps[largest]-temps[largest-1],dr=rains[largest]-rains[largest-1],dw=winds[largest]-winds[largest-1];
+   if(Math.abs(dt)>=.4)parts.push(`${dt>0?'+':''}${dt.toFixed(1)}°C`);
+   if(Math.abs(dr)>=10)parts.push(`${dr>0?'+':''}${Math.round(dr)}% regen`);
+   if(Math.abs(dw)>=5)parts.push(`${dw>0?'+':''}${Math.round(dw)} km/u wind`);
+   $('smartHourlyChange').textContent=parts.length?`Rond ${new Date(times[largest]).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}: ${parts.join(' • ')}.`:'Geen opvallende omslag.';
+ }else $('smartHourlyChange').textContent='Geen opvallende omslag in de komende uren.';
+ const currentTemp=Number(d.current.temperature_2m),currentWind=Number(d.current.wind_speed_10m);
+ const nextRain=Math.max(...rains.filter(Number.isFinite),0),nextWind=Math.max(...winds.filter(Number.isFinite),currentWind);
+ const confidence=Number(aiConfidence||0);
+ let decision;
+ if(nextRain>=70)decision='🌧️ Wachten met een langere buitenactiviteit: regen is waarschijnlijk.';
+ else if(nextWind>=55)decision='💨 Buiten kan, maar houd rekening met stevige wind(stoten).';
+ else if(currentTemp<7)decision='🧥 Buiten kan prima, maar neem een warme jas.';
+ else if(nextRain<25&&nextWind<35)decision='🟢 Dit ziet er uit als een relatief rustig buitenvenster.';
+ else decision='🟡 Buiten kan, maar de omstandigheden kunnen de komende uren wisselen.';
+ if(confidence<60)decision+=' De modellen verschillen behoorlijk, dus hercontrole is verstandig.';
+ else if(confidence>=80)decision+=' De modellen zijn het redelijk goed met elkaar eens.';
+ $('smartDecision').textContent=decision;
+}
+
+function renderTopSoilFrost(d){
+ const h=d.hourly||{}, idx=nearestIndex(h.time||[]), times=(h.time||[]).slice(idx,idx+48);
+ const s0=(h.soil_temperature_0cm||[]).slice(idx,idx+48).map(Number);
+ const s6=(h.soil_temperature_6cm||[]).slice(idx,idx+48).map(Number);
+ const s18=(h.soil_temperature_18cm||[]).slice(idx,idx+48).map(Number);
+ const air=(h.temperature_2m||[]).slice(idx,idx+48).map(Number);
+ const dew=(h.dew_point_2m||[]).slice(idx,idx+48).map(Number);
+ const wind=(h.wind_speed_10m||[]).slice(idx,idx+48).map(Number);
+ const cloud=(h.cloud_cover||[]).slice(idx,idx+48).map(Number);
