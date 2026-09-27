@@ -1,0 +1,75 @@
+async function modelWeather(lat,lon,model,timezone){const tz=encodeURIComponent(timezone||'auto');const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&hourly=temperature_2m,precipitation_probability,wind_speed_10m&forecast_days=2&timezone='+tz+'&models='+model;const r=await fetch(url+'&_ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(model+' '+r.status);return r.json()}
+function nearestIndex(times){const now=new Date();let idx=0,best=1e99;times.forEach((x,i)=>{const diff=Math.abs(new Date(x)-now);if(diff<best){best=diff;idx=i}});return idx}
+async function loadModels(lat,lon,timezone){
+ const learned=weightsFor(lat,lon);
+ $('models').innerHTML='';$('spread').textContent='⏳ Live modellen ophalen...';
+ const results=await Promise.all(Object.entries(modelDefs).map(async ([name,c])=>{try{const d=await modelWeather(lat,lon,c.model,timezone);const i=nearestIndex(d.hourly.time);return {name,id:c.id,role:c.role,temp:d.hourly.temperature_2m[i],rain:d.hourly.precipitation_probability[i],wind:d.hourly.wind_speed_10m[i],ok:true,time:d.hourly.time[i]}}catch(e){return {name,id:c.id,role:c.role,ok:false,error:e.message}}}));
+ results.forEach(x=>{const el=$(x.id);el.innerHTML=x.ok?'<span class="ok">🟢 live</span>':'<span class="error">🔴 fout</span>';$('models').innerHTML+=`<div class="mini"><b>${x.name}</b><br>${x.ok?`🟢 live<br>🌡️ ${Math.round(x.temp)}°C<br>🌧️ ${Math.round(x.rain)}%<br>💨 ${Math.round(x.wind)} km/u`:`🔴 ${x.error}`}<br><span class="small muted">${x.role}</span></div>`});
+ const good=results.filter(x=>x.ok);if(good.length){const temps=good.map(x=>x.temp),rains=good.map(x=>x.rain),winds=good.map(x=>x.wind);const avg=t=>t.reduce((a,b)=>a+b,0)/t.length;const ts=Math.max(...temps)-Math.min(...temps),rs=Math.max(...rains)-Math.min(...rains),ws=Math.max(...winds)-Math.min(...winds);const tempScore=Math.max(0,100-ts*20),rainScore=Math.max(0,100-rs*.6),windScore=Math.max(0,100-ws*2);const agreement=Math.round((tempScore+rainScore+windScore)/3); const weights=good.map(x=>learned[x.id]||1); const wsum=weights.reduce((a,b)=>a+b,0); const weightedTemp=good.reduce((a,x,i)=>a+x.temp*weights[i],0)/wsum; const weightedRain=good.reduce((a,x,i)=>a+x.rain*weights[i],0)/wsum; const weightedWind=good.reduce((a,x,i)=>a+x.wind*weights[i],0)/wsum; const learnedAvg=good.reduce((a,x,i)=>a+(Number(learned[x.id])||75)*weights[i],0)/wsum; const confidence=Math.round(Math.min(99,Math.max(1,agreement*.65+learnedAvg*.35))); $('spread').innerHTML=`🧠 <b>Modelovereenkomst ${agreement}%</b><br>🎯 <b>Gewogen AI-vertrouwen ${confidence}%</b><br>Samengestelde verwachting: 🌡️ ${weightedTemp.toFixed(1)}°C • 🌧️ ${Math.round(weightedRain)}% • 💨 ${Math.round(weightedWind)} km/u<br>Temperatuurspreiding: ${ts.toFixed(1)}°C • neerslagspreiding: ${Math.round(rs)} procentpunt • windspreiding: ${Math.round(ws)} km/u<br><span class="muted">${good.length}/4 modellen live. Historische modelprestatie bepaalt mee hoeveel invloed een model krijgt.</span>`;return {results,confidence,agreement,weightedTemp,weightedRain,weightedWind}}
+ $('spread').innerHTML='⚠️ Geen modeldata beschikbaar.';return {results,confidence:0,agreement:0,weightedTemp:null,weightedRain:null,weightedWind:null}
+}
+async function historicalObservation(lat,lon,timezone){
+ const end=new Date(); end.setDate(end.getDate()-1); const start=new Date(end); start.setDate(start.getDate()-13);
+ const iso=x=>x.toISOString().slice(0,10); const url='https://historical-forecast-api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&start_date='+iso(start)+'&end_date='+iso(end)+'&hourly=temperature_2m&timezone='+encodeURIComponent(timezone||'auto')+'&models=ecmwf_ifs025';
+ const r=await fetch(url); if(!r.ok) throw Error('Historische referentie '+r.status); return r.json();
+}
+async function modelSkill(lat,lon,def,timezone){
+ const end=new Date(); end.setDate(end.getDate()-1); const start=new Date(end); start.setDate(start.getDate()-13); const iso=x=>x.toISOString().slice(0,10);
+ const u='https://previous-runs-api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&start_date='+iso(start)+'&end_date='+iso(end)+'&hourly=temperature_2m_previous_day1&timezone='+encodeURIComponent(timezone||'auto')+'&models='+encodeURIComponent(def.model);
+ const [pr,obs]=await Promise.all([fetch(u),historicalObservation(lat,lon,timezone)]); if(!pr.ok||!obs) throw Error(def.model+' historisch niet beschikbaar');
+ const pd=await pr.json(); const oh=obs.hourly; const ph=pd.hourly; const map=new Map(oh.time.map((t,i)=>[t,oh.temperature_2m[i]])); let errs=[];
+ ph.time.forEach((t,i)=>{const a=ph.temperature_2m_previous_day1?.[i],b=map.get(t); if(Number.isFinite(a)&&Number.isFinite(b)) errs.push(Math.abs(a-b));});
+ if(!errs.length) throw Error('geen overlap'); const mae=errs.reduce((a,b)=>a+b,0)/errs.length; const score=Math.max(35,Math.min(99,100-mae*18)); return {mae,score,n:errs.length};
+}
+async function learnModels(lat,lon,timezone){
+ const learned=weightsFor(lat,lon);
+ $('learning').innerHTML=''; $('learningNote').textContent='⏳ Recente modelprestaties worden berekend...';
+ const out=await Promise.all(Object.entries(modelDefs).map(async ([name,def])=>{try{return {name,id:def.id,ok:true,...await modelSkill(lat,lon,def,timezone)}}catch(e){return {name,id:def.id,ok:false,error:e.message}}}));
+ out.forEach(x=>{if(x.ok){learned[x.id]=x.score; $('learning').innerHTML+=`<div class="mini"><b>${x.name}</b><br>🎯 Historische score: <b>${Math.round(x.score)}%</b><br>MAE temperatuur: ${x.mae.toFixed(2)}°C<br><span class="small muted">${x.n} vergelijkbare uren</span></div>`}else{$('learning').innerHTML+=`<div class="mini"><b>${x.name}</b><br><span class="warn">🟡 ${x.error}</span></div>`}});
+ const good=out.filter(x=>x.ok); if(good.length){good.forEach(x=>learned[x.id]=x.score); saveWeights(lat,lon,learned); $('learningNote').innerHTML='🧠 <b>Gewichten aangepast.</b> De historische foutmarge bepaalt hoeveel invloed elk model krijgt op de samengestelde verwachting. '+good.length+'/4 modellen konden worden gekalibreerd.';} else $('learningNote').textContent='⚠️ Historische kalibratie is tijdelijk niet beschikbaar; de live modelvergelijking blijft werken.';
+ return learned;
+}
+function windDir(deg){if(!Number.isFinite(deg))return 'onbekend';const dirs=['N','NNO','NO','ONO','O','OZO','ZO','ZZO','Z','ZZW','ZW','WZW','W','WNW','NW','NNW'];return dirs[Math.round(deg/22.5)%16]}
+function windArrow(deg){return Number.isFinite(deg)?Math.round(deg)+'°':'--°'}
+
+function renderSoilTemperature(d){
+ const h=d.hourly||{}, idx=nearestIndex(h.time||[]);
+ const s0=Number(h.soil_temperature_0cm?.[idx]);
+ const s6=Number(h.soil_temperature_6cm?.[idx]);
+ const s18=Number(h.soil_temperature_18cm?.[idx]);
+ const s54=Number(h.soil_temperature_54cm?.[idx]);
+ const m0=Number(h.soil_moisture_0_to_1cm?.[idx]);
+ const vals=[s0,s6,s18,s54];
+ if(!vals.some(Number.isFinite)){
+   $('soilTemp').innerHTML='⚠️ Bodemtemperatuur is voor deze locatie tijdelijk niet beschikbaar.';
+   return;
+ }
+ const card=(label,val)=>`<div class="mini"><b>${label}</b><br><span style="font-size:25px">${Number.isFinite(val)?val.toFixed(1)+'°C':'--'}</span></div>`;
+ let advice;
+ if(Number.isFinite(s6) && s6<2) advice='🥶 De bovenste bodemlaag is erg koud; groei en opname van water verlopen doorgaans traag.';
+ else if(Number.isFinite(s6) && s6<7) advice='🧊 De bodem is koud; voor warmteminnende planten zijn de omstandigheden nog beperkt.';
+ else if(Number.isFinite(s6) && s6<12) advice='🌱 De bodem begint op te warmen, maar blijft relatief koel.';
+ else if(Number.isFinite(s6) && s6<18) advice='🌱 Voor veel tuinactiviteiten is de bodemtemperatuur redelijk gematigd.';
+ else advice='☀️ De bovenste bodemlaag is relatief warm.';
+ const spread=(Number.isFinite(s6)&&Number.isFinite(s18))?(s6-s18):NaN;
+ const spreadText=Number.isFinite(spread)?(Math.abs(spread)<1?'De bodemtemperatuur is vrij stabiel met de diepte.':spread>0?'De bovenlaag is warmer dan de diepere bodem.':'De diepere bodem is warmer dan de bovenlaag.'):'';
+ $('soilTemp').innerHTML=`<div class="models">
+ ${card('Oppervlak · 0 cm',s0)}
+ ${card('Ondiep · 6 cm',s6)}
+ ${card('Wortelzone · 18 cm',s18)}
+ ${card('Dieper · 54 cm',s54)}
+ </div><div style="margin-top:12px">${advice}</div>
+ ${spreadText?`<div class="small muted" style="margin-top:6px">${spreadText}</div>`:''}
+ ${Number.isFinite(m0)?`<div class="small muted" style="margin-top:6px">💧 Bodemvocht 0–1 cm: ${m0.toFixed(3)} m³/m³</div>`:''}
+ <div class="small muted" style="margin-top:6px">🤖 Modelmatige bodemtemperatuur voor dezelfde locatie als de rest van de Hub.</div>`;
+
+ const hours=48;
+ const times=(h.time||[]).slice(idx,idx+hours);
+ const series=[
+   ['0 cm',h.soil_temperature_0cm||[]],
+   ['6 cm',h.soil_temperature_6cm||[]],
+   ['18 cm',h.soil_temperature_18cm||[]],
+   ['54 cm',h.soil_temperature_54cm||[]]
+ ];
+ let table=`<div style="overflow-x:auto"><table><tr><th>Tijd</th><th>0 cm</th><th>6 cm</th><th>18 cm</th><th>54 cm</th></tr>`;
+ for(let j=0;j<times.length;j++){
