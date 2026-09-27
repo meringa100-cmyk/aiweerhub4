@@ -44,104 +44,32 @@ function windArrowSymbol(deg){return Number.isFinite(deg)?['↑','↗','→','�
 function uvText(u){if(u<3)return'laag';if(u<6)return'matig';if(u<8)return'hoog';if(u<11)return'zeer hoog';return'extreem'}
 function fmtTime(v){return v?new Date(v).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'--:--'}
 
-let radarMap=null,radarLayer=null,radarMarker=null,cloudControl=null,cloudLayer=null,radarTimer=null;
-
-function cloudClass(v){
-  v=Number(v);
-  if(v<20)return'helder';
-  if(v<50)return'licht bewolkt';
-  if(v<80)return'half tot zwaar bewolkt';
-  return'zwaar bewolkt';
+let radarMap=null, radarLayer=null, radarMarker=null;
+async function radar(lat,lon){try{const box=$('radar');box.innerHTML='';if(typeof L==='undefined')throw Error('Kaartbibliotheek kon niet laden');if(radarMap)radarMap.remove();radarMap=L.map(box,{zoomControl:true,attributionControl:true,scrollWheelZoom:true}).setView([lat,lon],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(radarMap);radarMarker=L.marker([lat,lon]).addTo(radarMap).bindPopup('📍 '+(currentLocation?.name||'Gekozen locatie')).openPopup();const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');if(!r.ok)throw Error('RainViewer '+r.status);const d=await r.json();const f=d.radar?.past?.at(-1);if(!f)throw Error('geen radarframe');const tileUrl=d.host+f.path+'/{z}/{x}/{y}/2/1_1.png';radarLayer=L.tileLayer(tileUrl,{opacity:.62,maxZoom:7,tileSize:256,attribution:'Radar © RainViewer'}).addTo(radarMap);radarMap.setView([lat,lon],10);setTimeout(()=>radarMap.invalidateSize(),100);log('✔ Kaart automatisch gecentreerd op '+Number(lat).toFixed(3)+', '+Number(lon).toFixed(3)+' • zoom 10');log('✔ RainViewer-radar als transparante kaartlaag toegevoegd')}catch(e){$('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';log('⚠ Radar: '+e.message)}}
+async function analyse(){ $('log').innerHTML='';const place=$('city').value.trim()||'Emmen';try{log('📍 Locatie zoeken: '+place);const g=await geocode(place);currentLocation={name:g.name,latitude:g.latitude,longitude:g.longitude,timezone:g.timezone||'auto'};const name=g.name+(g.admin1?', '+g.admin1:'');$('locationInfo').textContent='📍 '+Number(g.latitude).toFixed(3)+', '+Number(g.longitude).toFixed(3)+' • '+(g.timezone||'lokale tijd');log('✔ Eén locatiepakket aangemaakt voor alle systemen');log('🌍 '+name+' → alle modellen krijgen dezelfde coördinaten en lokale tijdzone');const [base,models,skill]=await Promise.all([baseWeather(g.latitude,g.longitude,g.timezone),loadModels(g.latitude,g.longitude,g.timezone),learnModels(g.latitude,g.longitude,g.timezone)]);renderBase(base,name,models.confidence,models.weightedTemp,models.weightedRain,models.weightedWind,models.agreement);renderSoilTemperature(base);updateSmartSoil(base);renderSoilFrost(base);renderTopSoilFrost(base);renderExtras(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);renderSurprises(base);renderV36Insights(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);log('✔ V36 slimme buienvenster- en omslaganalyse uitgevoerd');log('✔ Bodemtemperatuur op 0 / 6 / 18 / 54 cm verwerkt');log('✔ 48-uurs bodemtemperatuurtrend berekend');log('✔ Bodemvorst-AI bovenaan berekend met bodem + lucht + dauwpunt + wind + bewolking');log('✔ Open-Meteo basis bijgewerkt');log('✔ ECMWF / HARMONIE / ICON / GFS vergeleken voor dezelfde locatie');log('✔ Historische kalibratie bijgewerkt voor deze locatie');await radar(g.latitude,g.longitude);log('✔ Radar eveneens naar dezelfde locatie verplaatst')}catch(e){$('summary').textContent='De live analyse kon niet volledig worden uitgevoerd.';log('❌ '+e.message)}}
+$('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};analyse();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+ window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js')
+ .then(()=>console.log('AI WeerHub V47 PWA actief'))
+ .catch(e=>console.warn('PWA:',e)));
 }
-
-function cloudControlEnsure(){
-  if(!radarMap)return;
-  if(!cloudControl){
-    cloudControl=L.control({position:'topright'});
-    cloudControl.onAdd=function(){
-      const el=L.DomUtil.create('div','leaflet-control');
-      el.style.cssText='background:rgba(10,20,35,.9);color:#fff;padding:8px 10px;border-radius:9px;font-size:13px;box-shadow:0 1px 5px rgba(0,0,0,.35);line-height:1.35';
-      el.innerHTML='☁️ <b>Bewolking</b><br><span id="cloudReadout">laden…</span>';
-      L.DomEvent.disableClickPropagation(el);
-      this._el=el;
-      return el;
-    };
-    cloudControl.addTo(radarMap);
-  }
-}
-
-async function updateCloudInfo(){
-  if(!radarMap)return;
-  try{
-    const c=radarMap.getCenter();
-    const u='https://api.open-meteo.com/v1/forecast?latitude='+c.lat.toFixed(4)+'&longitude='+c.lng.toFixed(4)+'&current=cloud_cover&timezone=auto';
-    const rr=await fetch(u);
-    if(!rr.ok)throw Error('cloud '+rr.status);
-    const d=await rr.json();
-    const v=Number(d.current?.cloud_cover);
-    if(!Number.isFinite(v))return;
-    cloudControlEnsure();
-    const ro=cloudControl?cloudControl._el?.querySelector('#cloudReadout'):null;
-    if(ro)ro.innerHTML=Math.round(v)+'% • '+cloudClass(v);
-  }catch(e){log('⚠ Bewolking: '+e.message)}
-}
-
-async function radar(lat,lon){
-  try{
-    const box=$('radar');
-    box.innerHTML='';
-    if(typeof L==='undefined')throw Error('Kaartbibliotheek kon niet laden');
-    if(radarMap)radarMap.remove();
-
-    radarMap=L.map(box,{
-      zoomControl:true,
-      attributionControl:true,
-      scrollWheelZoom:true,
-      minZoom:7,
-      maxZoom:19,
-      worldCopyJump:true
-    }).setView([lat,lon],10);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      maxZoom:19,
-      attribution:'© OpenStreetMap contributors'
-    }).addTo(radarMap);
-
-    radarMarker=L.marker([lat,lon]).addTo(radarMap)
-      .bindPopup('📍 '+(currentLocation?.name||'Gekozen locatie'))
-      .openPopup();
-
-    const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');
-    if(!r.ok)throw Error('RainViewer '+r.status);
-    const d=await r.json();
-    const f=d.radar?.past?.at(-1);
-    if(!f)throw Error('geen radarframe');
-
-    const tileUrl=d.host+f.path+'/{z}/{x}/{y}/2/1_1.png';
-    radarLayer=L.tileLayer(tileUrl,{
-      tileSize:256,
-      opacity:.62,
-      maxNativeZoom:7,
-      maxZoom:19,
-      keepBuffer:4,
-      updateWhenZooming:false,
-      updateWhenIdle:true,
-      attribution:'Radar © RainViewer'
-    }).addTo(radarMap);
-
-    cloudControlEnsure();
-    radarMap.on('moveend zoomend',()=>{
-      clearTimeout(radarTimer);
-      radarTimer=setTimeout(updateCloudInfo,250);
-    });
-
-    await updateCloudInfo();
-    setTimeout(()=>radarMap.invalidateSize(),100);
-
-    log('✔ Radar V64: stabiele RainViewer-configuratie');
-    log('✔ Kaart kan niet onder native radarzoom 7 komen; geen unsupported radarrequests');
-  }catch(e){
-    $('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';
-    log('⚠ Radar: '+e.message);
-  }
-}}
+</script>
+<script>
+(function(){
+  const $v=id=>document.getElementById(id);
+  function v49WeatherIcon(c){c=Number(c);if(c===0)return'☀️';if(c<=3)return'🌤️';if(c<=48)return'🌫️';if(c<=67)return'🌧️';if(c<=77)return'🌨️';if(c<=82)return'🌦️';if(c>=95)return'⛈️';return'🌦️'}
+  function hour(t){return new Date(t).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}
+  function card(label,icon,value,sub){return `<div style="background:#0b1729;border:1px solid #29415f;border-radius:12px;padding:10px"><div style="font-size:12px;color:#9fb3ca">${icon} ${label}</div><b style="font-size:18px">${value}</b><div style="font-size:11px;color:#9fb3ca">${sub}</div></div>`}
+  window.v48Run=function(){
+    const d=window.__AIWEATHER_LAST;
+    if(!d?.hourly?.time)return;
+    const h=d.hourly,idx=typeof nearestIndex==='function'?nearestIndex(h.time):0,n=Math.min(12,h.time.length-idx);
+    if(n<=0)return;
+    const temps=h.temperature_2m||[],rains=h.precipitation_probability||[],winds=h.wind_speed_10m||[],codes=h.weather_code||[],gusts=h.wind_gusts_10m||[],prec=h.precipitation||[];
+    let maxRain=-1,rainAt=0,maxGust=-1,gustAt=0,minT=999,maxT=-999,totalRain=0,rainHours=0;
+    const cards=[];
+    for(let j=0;j<n;j++){
+      const i=idx+j,temp=Number(temps[i]),rain=Number(rains[i]??0),wind=Number(winds[i]??0),gust=Number(gusts[i]??wind),code=Number(codes[i]),pr=Number(prec[i]??0);
+      if(rain>maxRain){maxRain=rain;rainAt=j} if(gust>maxGust){maxGust=gust;gustAt=j}
