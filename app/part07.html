@@ -133,6 +133,7 @@ async function radar(lat,lon){
     radarLayer=L.tileLayer(tileUrl,{
       tileSize:256,
       opacity:.62,
+      minZoom:7,
       maxNativeZoom:7,
       maxZoom:19,
       keepBuffer:4,
@@ -144,7 +145,7 @@ async function radar(lat,lon){
     // KNMI-lage-zoom fallback. KNMI publiceert actuele radarproducten
     // iedere 5 minuten; deze laag wordt alleen gebruikt onder zoom 7.
     knmiRadarLayer=L.tileLayer.wms('https://api.dataplatform.knmi.nl/wms/adaguc-server',{
-      layers:'radar_reflectivity_composites',
+      layers:'radar-reflectivity-composites',
       format:'image/png',
       transparent:true,
       opacity:.58,
