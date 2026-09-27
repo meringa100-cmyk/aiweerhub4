@@ -105,7 +105,7 @@ async function radar(lat,lon){
       zoomControl:true,
       attributionControl:true,
       scrollWheelZoom:true,
-      minZoom:1,
+      minZoom:7,
       maxZoom:19,
       worldCopyJump:true
     }).setView([lat,lon],10);
@@ -151,7 +151,7 @@ async function radar(lat,lon){
     setTimeout(()=>radarMap.invalidateSize(),100);
 
     log('✔ Radar V60: officiële RainViewer tile-aanpak');
-    log('✔ Native radarzoom 0–7, Leaflet schaalt daarbuiten zonder losse verschuivende overlay');
+    log('✔ Radar stabiel: RainViewer native zoom 7; daarboven schaalt Leaflet de radar geografisch vast');
   }catch(e){
     $('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';
     log('⚠ Radar: '+e.message);
