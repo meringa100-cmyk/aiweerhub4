@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI WeerHub Pro V48 — AI Weercentrum</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#07111f;color:#eef4ff}header{background:linear-gradient(90deg,#1d4ed8,#0891b2);padding:18px}header h1{margin:0 0 12px;font-size:25px}main{max-width:1200px;margin:auto;padding:14px}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar input{flex:1;min-width:160px}input,button{padding:11px;border:0;border-radius:9px;font-size:15px}button{background:#0ea5e9;color:white;font-weight:bold;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}.card{background:#132238;border-radius:16px;padding:16px;box-shadow:0 5px 20px #0003}.wide{grid-column:1/-1}.big{font-size:56px;font-weight:bold}.badge{display:inline-block;padding:6px 11px;border-radius:99px;background:#166534}.bar{height:12px;background:#24364e;border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:#22c55e;transition:.4s}.muted{color:#a9bbcf}.notice{background:#0d1c30;padding:12px;border-radius:10px}.ok{color:#86efac}.warn{color:#fde68a}.error{color:#fca5a5}table{width:100%;border-collapse:collapse}td,th{padding:9px;border-bottom:1px solid #29415f;text-align:left;vertical-align:top}.models{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px;margin-top:10px}.mini{background:#0d1c30;padding:11px;border-radius:10px}.mini b{font-size:16px}.spread{margin-top:12px;padding:12px;background:#0b1b2d;border-radius:10px}.forecast{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.day{background:#0d1c30;padding:8px;border-radius:9px;text-align:center;min-height:110px}.radarbox{height:420px;border-radius:14px;overflow:hidden;background:#082f49;display:flex;align-items:center;justify-content:center}.radarbox img{width:100%;height:100%;object-fit:cover}.log{height:150px;overflow:auto;background:#07101b;border-radius:9px;padding:10px;font-family:monospace;font-size:13px}.small{font-size:12px}.pill{padding:4px 8px;border-radius:99px;background:#183552;display:inline-block}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.legend span{background:#0d1c30;padding:5px 8px;border-radius:8px}.footer{color:#8ea4bd;font-size:12px;margin:18px 2px}@media(max-width:650px){.forecast{grid-template-columns:repeat(2,1fr)}header h1{font-size:21px}.big{font-size:48px}}
+
+.timeline{display:grid;grid-template-columns:repeat(12,minmax(70px,1fr));gap:8px;overflow-x:auto}.titem{background:#0b1729;border:1px solid #243852;border-radius:12px;padding:9px;text-align:center;min-width:72px}.titem b{display:block;margin-bottom:5px}.tbar{height:70px;display:flex;align-items:flex-end;justify-content:center}.tfill{width:22px;border-radius:7px 7px 2px 2px;background:linear-gradient(180deg,#38bdf8,#2563eb);min-height:3px}.rainbar{height:8px;background:#243852;border-radius:99px;overflow:hidden;margin-top:7px}.rainbar i{display:block;height:100%;background:#38bdf8;border-radius:99px}.windmini{font-size:12px;color:#b9c7da;margin-top:5px}.legendmini{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:#b9c7da}
+<style>
+/* V47: radar zichtbaar onder het bovenste AI-dashboard */
+.hidden-after-map{display:none!important}
+#topRadar{position:relative!important;left:auto!important;top:auto!important;width:auto!important;height:auto!important;min-height:0!important;opacity:1!important;overflow:visible!important;pointer-events:auto!important;margin:0 auto 18px!important;padding:16px!important}
+#topRadar .radarbox{width:100%!important;height:420px!important;min-height:420px!important}
+</style></style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#123b5d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI WeerHub">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<style>
+#v48Hours .v48hour{background:#0b1729;border:1px solid #29415f;border-radius:12px;padding:9px;text-align:center;min-width:78px}
+#v48Hours .v48hour .v48temp{font-size:22px;font-weight:800;margin:6px 0}
+#v48Hours .v48rain{height:7px;background:#243852;border-radius:99px;overflow:hidden;margin-top:7px}
+#v48Hours .v48rain i{display:block;height:100%;background:#38bdf8;border-radius:99px}
+.v48alert{background:#0d1c30;border-radius:12px;padding:11px;border-left:4px solid #38bdf8}
+.v48alert b{display:block;margin-bottom:3px}
+@media(max-width:650px){#v48Hours{grid-template-columns:repeat(12,minmax(74px,1fr));overflow-x:auto}}
+</style>
+
+<style id="hideBelowRadar">
+/* V49: alles onder de regenradar blijft in de app/code bewaard, maar wordt niet zichtbaar gemaakt. */
+#topRadar ~ header, #topRadar ~ main, #topRadar ~ section, #topRadar ~ div, #topRadar ~ footer { display:none !important; }
+</style>
+</head>
+<body>
+<section id="smartTop" style="max-width:1100px;margin:18px auto;padding:20px;border-radius:22px;background:linear-gradient(135deg,#123b5d,#1d5f82);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.18)">
+  <div style="font-size:14px;opacity:.85">📍 <span id="smartPlace">Emmen</span></div>
+  <div style="display:flex;align-items:end;gap:14px;flex-wrap:wrap;margin-top:6px">
+    <div style="font-size:54px;font-weight:800;line-height:1"><span id="smartTemp">--</span>°C</div>
+    <div style="padding-bottom:5px;opacity:.9">Voelt als <b id="smartFeels">--</b>°C</div>
+    <div style="padding-bottom:5px;opacity:.9">🤖 AI-model <b id="smartAiTemp">--</b>°C</div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+    <span>☀️ <b id="smartSky">--</b></span><span>💧 <b id="smartHum">--</b>%</span><span>💨 <b id="smartWind">--</b> km/u <b id="smartDir">--</b></span><span>🌧️ <b id="smartRain">--</b>%</span>
+  </div>
+  <div style="margin-top:18px;padding:14px;border-radius:16px;background:rgba(255,255,255,.12)">
+    <div style="font-size:20px;font-weight:750" id="smartComfort">🟢 Analyse wordt bijgewerkt</div>
+    <div style="margin-top:5px;opacity:.9">🤖 AI-vertrouwen: <b id="smartConfidence">--</b>% · <span id="smartAgreement">Modelovereenkomst wordt berekend</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px">
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🌡️ <b>Komende 6 uur</b><div id="smartTrend" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🌧️ <b>Regen</b><div id="smartRainText" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">👕 <b>Buitenadvies</b><div id="smartAdvice" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🔄 <b>Verandering</b><div id="smartChange" style="margin-top:5px">--</div></div>
+  </div>
+  <div style="margin-top:12px;font-size:12px;opacity:.72">Laatst bijgewerkt: <span id="smartUpdated">--</span></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px">
+    <div style="background:rgba(255,255,255,.14);padding:14px;border-radius:14px">🌧️ <b>Buienvenster</b><div id="smartRainWindow" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.14);padding:14px;border-radius:14px">📉 <b>Weer verandert</b><div id="smartHourlyChange" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.14);padding:14px;border-radius:14px">🧭 <b>AI-besluit</b><div id="smartDecision" style="margin-top:5px">--</div></div>
+  </div>
+
+  <div id="smartInsights" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:12px">
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🧺 <b>Droogkans</b><div id="smartDry" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🌫️ <b>Dauwpunt</b><div id="smartDew" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🎯 <b>Beste buitenmoment</b><div id="smartWindow" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🌡️ <b>Temperatuurtrend</b><div id="smartDelta" style="margin-top:5px">--</div></div>
+  </div>
+  <div style="margin-top:12px;background:rgba(255,255,255,.14);padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.12)">
+    <div style="font-size:16px;font-weight:700">🌱 Grondtemperatuur</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:9px">
