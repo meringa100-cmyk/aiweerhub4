@@ -44,7 +44,7 @@ function windArrowSymbol(deg){return Number.isFinite(deg)?['↑','↗','→','�
 function uvText(u){if(u<3)return'laag';if(u<6)return'matig';if(u<8)return'hoog';if(u<11)return'zeer hoog';return'extreem'}
 function fmtTime(v){return v?new Date(v).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'--:--'}
 
-let radarMap=null,radarLayer=null,radarMarker=null,cloudControl=null,cloudLayer=null,radarTimer=null,knmiRadarLayer=null;
+let radarMap=null,radarLayer=null,radarMarker=null,cloudControl=null,cloudLayer=null,radarTimer=null;
 
 function cloudClass(v){
   v=Number(v);
@@ -86,18 +86,6 @@ async function updateCloudInfo(){
   }catch(e){log('⚠ Bewolking: '+e.message)}
 }
 
-function radarZoomMode(){
-  if(!radarMap)return;
-  const z=radarMap.getZoom();
-  if(z<7){
-    if(radarLayer && radarMap.hasLayer(radarLayer))radarMap.removeLayer(radarLayer);
-    if(knmiRadarLayer && !radarMap.hasLayer(knmiRadarLayer))knmiRadarLayer.addTo(radarMap);
-  }else{
-    if(knmiRadarLayer && radarMap.hasLayer(knmiRadarLayer))radarMap.removeLayer(knmiRadarLayer);
-    if(radarLayer && !radarMap.hasLayer(radarLayer))radarLayer.addTo(radarMap);
-  }
-}
-
 async function radar(lat,lon){
   try{
     const box=$('radar');
@@ -109,7 +97,7 @@ async function radar(lat,lon){
       zoomControl:true,
       attributionControl:true,
       scrollWheelZoom:true,
-      minZoom:1,
+      minZoom:7,
       maxZoom:19,
       worldCopyJump:true
     }).setView([lat,lon],10);
@@ -133,42 +121,25 @@ async function radar(lat,lon){
     radarLayer=L.tileLayer(tileUrl,{
       tileSize:256,
       opacity:.62,
-      minZoom:7,
       maxNativeZoom:7,
       maxZoom:19,
       keepBuffer:4,
       updateWhenZooming:false,
       updateWhenIdle:true,
       attribution:'Radar © RainViewer'
-    });
+    }).addTo(radarMap);
 
-    // KNMI-lage-zoom fallback. KNMI publiceert actuele radarproducten
-    // iedere 5 minuten; deze laag wordt alleen gebruikt onder zoom 7.
-    knmiRadarLayer=L.tileLayer.wms('https://api.dataplatform.knmi.nl/wms/adaguc-server',{
-      layers:'radar-reflectivity-composites',
-      format:'image/png',
-      transparent:true,
-      opacity:.58,
-      version:'1.1.1',
-      attribution:'Radar © KNMI'
-    });
-
-    radarLayer.addTo(radarMap);
-    radarMap.on('zoomend moveend',()=>{
-      radarZoomMode();
+    cloudControlEnsure();
+    radarMap.on('moveend zoomend',()=>{
       clearTimeout(radarTimer);
       radarTimer=setTimeout(updateCloudInfo,250);
     });
 
-    cloudControlEnsure();
     await updateCloudInfo();
-    setTimeout(()=>{
-      radarMap.invalidateSize();
-      radarZoomMode();
-    },100);
+    setTimeout(()=>radarMap.invalidateSize(),100);
 
-    log('✔ Radar V62: RainViewer vanaf zoom 7 + KNMI fallback onder zoom 7');
-    log('✔ Lage zoom gebruikt KNMI-WMS zodat uitzoomen niet meer tegen RainViewer aanloopt');
+    log('✔ Radar V64: stabiele RainViewer-configuratie');
+    log('✔ Kaart kan niet onder native radarzoom 7 komen; geen unsupported radarrequests');
   }catch(e){
     $('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';
     log('⚠ Radar: '+e.message);
