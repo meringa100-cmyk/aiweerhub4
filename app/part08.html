@@ -1,7 +1,24 @@
       if(Number.isFinite(temp)){minT=Math.min(minT,temp);maxT=Math.max(maxT,temp)} totalRain+=Number.isFinite(pr)?pr:0;if(rain>=40)rainHours++;
       cards.push(`<div class="v48hour"><b>${j===0?'NU':hour(h.time[i])}</b><div style="font-size:25px">${v49WeatherIcon(code)}</div><div class="v48temp">${Number.isFinite(temp)?Math.round(temp)+'°':'--'}</div><div style="font-size:12px">🌧️ ${Math.round(rain)}%</div><div class="v48rain"><i style="width:${Math.max(0,Math.min(100,rain))}%"></i></div><div style="font-size:12px;margin-top:5px">💨 ${Math.round(wind)} km/u</div>${gust>wind+10?`<div style="font-size:11px;color:#fde68a">stoot ${Math.round(gust)}</div>`:''}</div>`);
     }
-    $v('v48Hours').innerHTML=cards.join('');
+    $v('v48Hours').innerHTML=cards.join('');\n    // V51: 12-daagse verwachting in het grote voorspellingsblok
+    const daily=d.daily||{};
+    const days=Math.min(12,daily.time?.length||0);
+    const dayName=iso=>new Date(iso+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
+    const dayCards=[];
+    let warmest=-Infinity,warmDay=0,wettest=-Infinity,wetDay=0,windiest=-Infinity,windDay=0;
+    for(let di=0;di<days;di++){
+      const tmin=Number(daily.temperature_2m_min?.[di]),tmax=Number(daily.temperature_2m_max?.[di]);
+      const rain=Number(daily.precipitation_probability_max?.[di]),mm=Number(daily.precipitation_sum?.[di]);
+      const gust=Number(daily.wind_gusts_10m_max?.[di]);
+      if(Number.isFinite(tmax)&&tmax>warmest){warmest=tmax;warmDay=di}
+      if(Number.isFinite(mm)&&mm>wettest){wettest=mm;wetDay=di}
+      if(Number.isFinite(gust)&&gust>windiest){windiest=gust;windDay=di}
+      dayCards.push(`<div class="v48hour" style="min-width:115px"><b>${di===0?'Vandaag':dayName(daily.time[di])}</b><div style="font-size:25px">${v49WeatherIcon(Number(daily.weather_code?.[di]))}</div><div class="v48temp">${Number.isFinite(tmin)&&Number.isFinite(tmax)?Math.round(tmin)+'° / '+Math.round(tmax)+'°':'--'}</div><div style="font-size:12px">🌧️ ${Number.isFinite(rain)?Math.round(rain):'--'}%</div><div class="v48rain"><i style="width:${Math.max(0,Math.min(100,Number.isFinite(rain)?rain:0))}%"></i></div><div style="font-size:12px;margin-top:5px">💧 ${Number.isFinite(mm)?mm.toFixed(1):'--'} mm</div><div style="font-size:12px">💨 ${Number.isFinite(gust)?Math.round(gust):'--'} km/u</div></div>`);
+    }
+    $v('v48Hours').style.gridTemplateColumns='repeat(12,minmax(115px,1fr))';
+    $v('v48Hours').innerHTML=dayCards.join('');
+
     // V50: visuele 12-uurs trendgrafiek
     if(!$v('v50Chart')){
       const radar=$v('topRadar');
@@ -34,26 +51,21 @@
       <text x="${svgW-padR}" y="15" text-anchor="end" fill="#a78bfa" font-size="12">💨 wind</text>
     </svg>`;
     $v('v50ChartInfo').textContent=`V50 • ${n} uur vooruit • temperatuur, regenkans en wind visueel vergeleken.`;
-    const cur=Number(d.current?.temperature_2m), end=Number(temps[idx+n-1]),delta=Number.isFinite(cur)&&Number.isFinite(end)?end-cur:0;
-    let headline='De komende 12 uur verandert het weer maar weinig.';
-    if(maxRain>=70) headline=`🌧️ De grootste regenkans ligt rond ${hour(h.time[idx+rainAt])}, met ongeveer ${Math.round(maxRain)}% kans.`;
-    else if(maxRain>=40) headline=`🌦️ Er zijn enkele buienmomenten mogelijk; de hoogste regenkans ligt rond ${hour(h.time[idx+rainAt])}.`;
-    else if(maxGust>=45) headline=`💨 Vooral de wind valt op; de krachtigste windstoot komt rond ${hour(h.time[idx+gustAt])}.`;
-    if(Math.abs(delta)>=2) headline+=` De temperatuur ${delta>0?'loopt op':'daalt'} richting ${end.toFixed(1)}°C.`;
-    $v('v48Headline').textContent=headline;
-    $v('v49Summary').innerHTML=[card('Temperatuur','🌡️',`${Number.isFinite(minT)?Math.round(minT):'--'}° → ${Number.isFinite(maxT)?Math.round(maxT):'--'}°`,'verwacht bereik'),card('Regen','🌧️',`${Math.round(maxRain)}%`,`hoogste kans rond ${hour(h.time[idx+rainAt])}`),card('Windstoot','💨',`${Math.round(maxGust)} km/u`,`sterkste moment rond ${hour(h.time[idx+gustAt])}`),card('Buienuren','☔',`${rainHours} uur`,'met ≥40% regenkans')].join('');
+    const todayMax=Number(daily.temperature_2m_max?.[0]), todayMin=Number(daily.temperature_2m_min?.[0]);
+    const warmText=Number.isFinite(warmest)?`Warmste maximum: ${Math.round(warmest)}°C op ${dayName(daily.time[warmDay])}.`:'Warmste dag niet beschikbaar.';
+    const wetText=Number.isFinite(wettest)?`Meeste neerslag: ${wettest.toFixed(1)} mm op ${dayName(daily.time[wetDay])}.`:'Neerslag niet beschikbaar.';
+    const windText=Number.isFinite(windiest)?`Sterkste windstoten: ${Math.round(windiest)} km/u op ${dayName(daily.time[windDay])}.`:'Windgegevens niet beschikbaar.';
+    $v('v48Headline').textContent=`🗓️ De 12-daagse verwachting laat de ontwikkeling zien van temperatuur, regen en wind. ${warmText}`;
+    $v('v49Summary').innerHTML=[card('Vandaag','🌡️',Number.isFinite(todayMin)&&Number.isFinite(todayMax)?`${Math.round(todayMin)}° / ${Math.round(todayMax)}°`:'--','minimum / maximum'),card('Warmste dag','☀️',Number.isFinite(warmest)?Math.round(warmest)+'°':'--',Number.isFinite(warmest)?dayName(daily.time[warmDay]):'--'),card('Meeste regen','🌧️',Number.isFinite(wettest)?wettest.toFixed(1)+' mm':'--',Number.isFinite(wettest)?dayName(daily.time[wetDay]):'--'),card('Sterkste wind','💨',Number.isFinite(windiest)?Math.round(windiest)+' km/u':'--',Number.isFinite(windiest)?dayName(daily.time[windDay]):'--')].join('');
     const warnings=[];
-    if(maxRain>=70)warnings.push(`<div class="v48alert"><b>🌧️ Regenmoment</b>Hoge regenkans rond ${hour(h.time[idx+rainAt])} (${Math.round(maxRain)}%).</div>`);
-    else if(maxRain>=40)warnings.push(`<div class="v48alert"><b>🌦️ Buien mogelijk</b>De regenkans loopt tijdelijk op tot ongeveer ${Math.round(maxRain)}%.</div>`);
-    if(maxGust>=45)warnings.push(`<div class="v48alert"><b>💨 Wind</b>Maximale windstoot ongeveer ${Math.round(maxGust)} km/u rond ${hour(h.time[idx+gustAt])}.</div>`);
-    const soil=h.soil_temperature_6cm?.[idx];if(Number.isFinite(Number(soil))&&Number(soil)<=4)warnings.push(`<div class="v48alert"><b>🌱 Koude bodem</b>De bodem op 6 cm is ongeveer ${Number(soil).toFixed(1)}°C.</div>`);
-    if(!warnings.length)warnings.push(`<div class="v48alert"><b>🟢 Rustig weerbeeld</b>Geen duidelijke regen- of windpiek in de komende 12 uur.</div>`);
+    if(Number.isFinite(wettest)&&wettest>=10)warnings.push(`<div class="v48alert"><b>🌧️ Nattere periode</b>Op ${dayName(daily.time[wetDay])} wordt ongeveer ${wettest.toFixed(1)} mm neerslag verwacht.</div>`);
+    if(Number.isFinite(windiest)&&windiest>=45)warnings.push(`<div class="v48alert"><b>💨 Wind</b>De hoogste verwachte windstoot is ongeveer ${Math.round(windiest)} km/u op ${dayName(daily.time[windDay])}.</div>`);
+    const maxRainProb=Math.max(...(daily.precipitation_probability_max||[]).map(Number).filter(Number.isFinite));
+    if(Number.isFinite(maxRainProb)&&maxRainProb>=70)warnings.push(`<div class="v48alert"><b>🌦️ Hoge regenkans</b>Op minstens één dag loopt de maximale regenkans op tot ongeveer ${Math.round(maxRainProb)}%.</div>`);
+    if(!warnings.length)warnings.push('<div class="v48alert"><b>🟢 Geen opvallende pieken</b>Er zijn in de komende 12 dagen geen grote regen- of windpieken volgens deze verwachting.</div>');
     $v('v48Warnings').innerHTML=warnings.join('');
-    const rainText=maxRain>=70?`Neem rond ${hour(h.time[idx+rainAt])} rekening met regen.`:maxRain>=40?`Een bui kan tussendoor ontstaan, vooral rond ${hour(h.time[idx+rainAt])}.`:'Er is de komende uren geen duidelijke regenpiek zichtbaar.';
-    const windText=maxGust>=45?`De windstoten kunnen oplopen tot ongeveer ${Math.round(maxGust)} km/u.`:'De wind blijft de komende uren overwegend beheersbaar.';
-    const tempText=Math.abs(delta)>=2?`De temperatuur verandert merkbaar richting ${end.toFixed(1)}°C.`:'De temperatuur blijft redelijk stabiel.';
-    $v('v49Narrative').innerHTML=`<b>🧠 AI-uitleg</b><br>${rainText} ${windText} ${tempText}`;
-    $v('v48Status').textContent='V50 • bijgewerkt '+new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+    $v('v49Narrative').innerHTML=`<b>🧠 AI-uitleg 12 dagen</b><br>${warmText} ${wetText} ${windText} De verwachting verder vooruit is minder zeker; gebruik vooral de trend en let op dagelijkse updates.`;
+    $v('v48Status').textContent='V51 • bijgewerkt '+new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
   };
   function v48Search(){const city=$v('v48City')?.value.trim();if(!city)return;const main=$v('city');if(main){main.value=city;const btn=$v('analyse');if(btn)btn.click();else if(typeof analyse==='function')analyse();}}
   $v('v48Search')?.addEventListener('click',v48Search);$v('v48Now')?.addEventListener('click',()=>{$v('analyse')?.click()});$v('v48City')?.addEventListener('keydown',e=>{if(e.key==='Enter')v48Search()});
