@@ -45,52 +45,46 @@ function uvText(u){if(u<3)return'laag';if(u<6)return'matig';if(u<8)return'hoog';
 function fmtTime(v){return v?new Date(v).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'--:--'}
 
 let radarMap=null,radarLayer=null,radarImage=null,radarMarker=null,cloudControl=null,radarTimer=null;
-
-function cloudClass(v){
-  v=Number(v);
-  if(v<20)return'helder';
-  if(v<50)return'licht bewolkt';
-  if(v<80)return'half tot zwaar bewolkt';
-  return'zwaar bewolkt';
+function mercY(lat){const r=Math.PI/180;return Math.log(Math.tan(Math.PI/4+lat*r/2));}
+function invMercY(y){return (2*Math.atan(Math.exp(y))-Math.PI/2)*180/Math.PI;}
+function radarImageBounds(){
+  const z=Math.max(1,Math.min(6,Math.round(radarMap.getZoom())));
+  const size=512,scale=256*Math.pow(2,z);
+  const c=radarMap.getCenter(),lonSpan=360*size/scale;
+  const cy=mercY(c.lat),halfY=(lonSpan*Math.PI/180)*size/size/2;
+  const north=Math.min(85.05112878,invMercY(cy+halfY));
+  const south=Math.max(-85.05112878,invMercY(cy-halfY));
+  const west=c.lng-lonSpan/2,east=c.lng+lonSpan/2;
+  return [[south,west],[north,east]];
 }
+function cloudClass(v){v=Number(v);if(v<20)return'helder';if(v<50)return'licht bewolkt';if(v<80)return'half tot zwaar bewolkt';return'zwaar bewolkt'}
 async function updateCloudInfo(){
   if(!radarMap)return;
   try{
-    const c=radarMap.getCenter();
-    const u='https://api.open-meteo.com/v1/forecast?latitude='+c.lat.toFixed(4)+'&longitude='+c.lng.toFixed(4)+'&current=cloud_cover&timezone=auto';
+    const c=radarMap.getCenter(),u='https://api.open-meteo.com/v1/forecast?latitude='+c.lat.toFixed(4)+'&longitude='+c.lng.toFixed(4)+'&current=cloud_cover&timezone=auto';
     const rr=await fetch(u);if(!rr.ok)throw Error('cloud '+rr.status);
-    const d=await rr.json(),v=Number(d.current?.cloud_cover);
-    if(!Number.isFinite(v))return;
+    const d=await rr.json(),v=Number(d.current?.cloud_cover);if(!Number.isFinite(v))return;
     if(!cloudControl){
       cloudControl=L.control({position:'topright'});
       cloudControl.onAdd=function(){
         const el=L.DomUtil.create('div','leaflet-control');
         el.style.cssText='background:rgba(10,20,35,.86);color:#fff;padding:7px 10px;border-radius:9px;font-size:13px;box-shadow:0 1px 5px rgba(0,0,0,.35);line-height:1.3';
         this._el=el;L.DomEvent.disableClickPropagation(el);return el;
-      };
-      cloudControl.addTo(radarMap);
+      };cloudControl.addTo(radarMap);
     }
-    cloudControl._el.innerHTML='☁️ <b>Bewolking</b><br>'+Math.round(v)+'% • '+cloudClass(v);
+    cloudControl._el.innerHTML='☁️ <b>Bewolking centrum</b><br>'+Math.round(v)+'% • '+cloudClass(v);
   }catch(e){log('⚠ Bewolking: '+e.message)}
 }
-function radarImageBounds(){
-  const z=Math.max(1,Math.min(6,Math.round(radarMap.getZoom())));
-  const c=radarMap.getCenter();
-  const halfLon=360/Math.pow(2,z+1);
-  const halfLat=Math.min(80,halfLon*.72);
-  return [[c.lat-halfLat,c.lng-halfLon],[c.lat+halfLat,c.lng+halfLon]];
-}
-async function updateRadar(){
+function radarMode(){
   if(!radarMap||!window.__RAINVIEWER_FRAME)return;
-  const z=Math.round(radarMap.getZoom());
+  const z=radarMap.getZoom();
   if(z>=7){
-    if(radarImage&&radarMap.hasLayer(radarImage)){radarMap.removeLayer(radarImage);}
+    if(radarImage&&radarMap.hasLayer(radarImage)){radarMap.removeLayer(radarImage);radarImage=null}
     if(radarLayer&&!radarMap.hasLayer(radarLayer))radarLayer.addTo(radarMap);
     return;
   }
   if(radarLayer&&radarMap.hasLayer(radarLayer))radarMap.removeLayer(radarLayer);
-  const c=radarMap.getCenter(),zz=Math.max(1,Math.min(6,z));
-  const f=window.__RAINVIEWER_FRAME;
+  const c=radarMap.getCenter(),zz=Math.max(1,Math.min(6,Math.round(z))),f=window.__RAINVIEWER_FRAME;
   const url=window.__RAINVIEWER_HOST+f.path+'/512/'+zz+'/'+c.lat.toFixed(5)+'/'+c.lng.toFixed(5)+'/2/1_1.png';
   const bounds=radarImageBounds();
   if(radarImage)radarMap.removeLayer(radarImage);
@@ -101,37 +95,21 @@ async function radar(lat,lon){
     const box=$('radar');box.innerHTML='';
     if(typeof L==='undefined')throw Error('Kaartbibliotheek kon niet laden');
     if(radarMap)radarMap.remove();
-    radarMap=L.map(box,{zoomControl:true,attributionControl:true,scrollWheelZoom:true}).setView([lat,lon],10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      maxZoom:19,attribution:'© OpenStreetMap contributors'
-    }).addTo(radarMap);
-    radarMarker=L.marker([lat,lon]).addTo(radarMap)
-      .bindPopup('📍 '+(currentLocation?.name||'Gekozen locatie')).openPopup();
-
-    const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');
-    if(!r.ok)throw Error('RainViewer '+r.status);
-    const d=await r.json(),f=d.radar?.past?.at(-1);
-    if(!f)throw Error('geen radarframe');
+    radarMap=L.map(box,{zoomControl:true,attributionControl:true,scrollWheelZoom:true,maxZoom:19,minZoom:1}).setView([lat,lon],10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(radarMap);
+    radarMarker=L.marker([lat,lon]).addTo(radarMap).bindPopup('📍 '+(currentLocation?.name||'Gekozen locatie')).openPopup();
+    const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');if(!r.ok)throw Error('RainViewer '+r.status);
+    const d=await r.json(),f=d.radar?.past?.at(-1);if(!f)throw Error('geen radarframe');
     window.__RAINVIEWER_HOST=d.host;window.__RAINVIEWER_FRAME=f;
     const tileUrl=d.host+f.path+'/{z}/{x}/{y}/2/1_1.png';
-    radarLayer=L.tileLayer(tileUrl,{
-      opacity:.62,tileSize:256,maxNativeZoom:7,maxZoom:19,
-      keepBuffer:4,updateWhenZooming:false,updateWhenIdle:true,
-      attribution:'Radar © RainViewer'
-    });
+    radarLayer=L.tileLayer(tileUrl,{opacity:.62,tileSize:256,maxNativeZoom:7,maxZoom:19,keepBuffer:4,updateWhenZooming:false,updateWhenIdle:true,attribution:'Radar © RainViewer'});
     radarMap.on('zoomend moveend',()=>{
-      clearTimeout(radarTimer);
-      radarTimer=setTimeout(()=>{updateRadar();updateCloudInfo()},180);
+      clearTimeout(radarTimer);radarTimer=setTimeout(()=>{radarMode();updateCloudInfo()},180);
     });
-    await updateRadar();
-    await updateCloudInfo();
-    setTimeout(()=>radarMap.invalidateSize(),100);
-    log('✔ Radar: RainViewer-tegels vanaf zoom 7; coordinate-radar bij uitzoomen');
-    log('✔ Bewolking toegevoegd als actuele laaginfo voor het kaartcentrum');
-  }catch(e){
-    $('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';
-    log('⚠ Radar: '+e.message)
-  }
+    radarMode();await updateCloudInfo();setTimeout(()=>radarMap.invalidateSize(),100);
+    log('✔ Radar RainViewer: native tegels zoom 7+ en coordinate-afbeelding zoom 1-6');
+    log('✔ Bewolking centrum: actuele Open-Meteo cloud cover');
+  }catch(e){$('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';log('⚠ Radar: '+e.message)}
 }
 async function analyse(){ $('log').innerHTML='';const place=$('city').value.trim()||'Emmen';try{log('📍 Locatie zoeken: '+place);const g=await geocode(place);currentLocation={name:g.name,latitude:g.latitude,longitude:g.longitude,timezone:g.timezone||'auto'};const name=g.name+(g.admin1?', '+g.admin1:'');$('locationInfo').textContent='📍 '+Number(g.latitude).toFixed(3)+', '+Number(g.longitude).toFixed(3)+' • '+(g.timezone||'lokale tijd');log('✔ Eén locatiepakket aangemaakt voor alle systemen');log('🌍 '+name+' → alle modellen krijgen dezelfde coördinaten en lokale tijdzone');const [base,models,skill]=await Promise.all([baseWeather(g.latitude,g.longitude,g.timezone),loadModels(g.latitude,g.longitude,g.timezone),learnModels(g.latitude,g.longitude,g.timezone)]);renderBase(base,name,models.confidence,models.weightedTemp,models.weightedRain,models.weightedWind,models.agreement);renderSoilTemperature(base);updateSmartSoil(base);renderSoilFrost(base);renderTopSoilFrost(base);renderExtras(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);renderSurprises(base);renderV36Insights(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);log('✔ V36 slimme buienvenster- en omslaganalyse uitgevoerd');log('✔ Bodemtemperatuur op 0 / 6 / 18 / 54 cm verwerkt');log('✔ 48-uurs bodemtemperatuurtrend berekend');log('✔ Bodemvorst-AI bovenaan berekend met bodem + lucht + dauwpunt + wind + bewolking');log('✔ Open-Meteo basis bijgewerkt');log('✔ ECMWF / HARMONIE / ICON / GFS vergeleken voor dezelfde locatie');log('✔ Historische kalibratie bijgewerkt voor deze locatie');await radar(g.latitude,g.longitude);log('✔ Radar eveneens naar dezelfde locatie verplaatst')}catch(e){$('summary').textContent='De live analyse kon niet volledig worden uitgevoerd.';log('❌ '+e.message)}}
 $('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};analyse();
