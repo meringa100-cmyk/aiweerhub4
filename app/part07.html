@@ -89,7 +89,7 @@ function cloudControlEnsure(){
 
 function createCloudLayer(){
   if(cloudLayer)return cloudLayer;
-  cloudLayer=L.Layer.extend({
+  const CloudLayer=L.Layer.extend({
     onAdd:function(map){
       this._map=map;
       this._canvas=L.DomUtil.create('canvas','leaflet-cloud-layer');
@@ -97,7 +97,6 @@ function createCloudLayer(){
       map.getPanes().overlayPane.appendChild(this._canvas);
       this._reset();
       map.on('move zoom resize',this._reset,this);
-      return this;
     },
     onRemove:function(map){
       map.off('move zoom resize',this._reset,this);
@@ -106,38 +105,40 @@ function createCloudLayer(){
     },
     _reset:function(){
       if(!this._map||!this._canvas)return;
-      const s=this._map.getSize(),d=window.devicePixelRatio||1;
-      this._canvas.width=Math.max(1,Math.round(s.x*d));
-      this._canvas.height=Math.max(1,Math.round(s.y*d));
+      const s=this._map.getSize(),d=window.devicePixelRatio||1,scale=4;
+      const w=Math.max(1,Math.ceil(s.x*d/scale)),h=Math.max(1,Math.ceil(s.y*d/scale));
+      this._canvas.width=w;this._canvas.height=h;
       this._canvas.style.width=s.x+'px';this._canvas.style.height=s.y+'px';
       this._canvas.style.left='0';this._canvas.style.top='0';
       this.redraw();
     },
     redraw:function(){
       if(!this._map||!this._canvas||!window.__CLOUD_GRID)return;
-      const s=this._map.getSize(),d=window.devicePixelRatio||1,ctx=this._canvas.getContext('2d');
-      const w=Math.max(1,Math.round(s.x*d)),h=Math.max(1,Math.round(s.y*d));
-      const img=ctx.createImageData(w,h),data=img.data,pts=window.__CLOUD_GRID.points;
+      const s=this._map.getSize(),d=window.devicePixelRatio||1,scale=4;
+      const w=this._canvas.width,h=this._canvas.height,ctx=this._canvas.getContext('2d');
+      const pts=window.__CLOUD_GRID.points;
       if(!pts||!pts.length)return;
+      const img=ctx.createImageData(w,h),data=img.data;
       for(let y=0;y<h;y++){
-        const py=y/d;
+        const py=y*scale/d;
         for(let x=0;x<w;x++){
-          const px=x/d;
+          const px=x*scale/d;
           let sw=0,sv=0;
           for(const p of pts){
             const dx=px-p.x,dy=py-p.y,dist2=dx*dx+dy*dy;
-            const wt=1/(dist2+45);
+            const wt=1/(dist2+180);
             sw+=wt;sv+=wt*p.v;
           }
           const v=Math.max(0,Math.min(100,sv/sw));
-          const a=Math.round((8+0.30*v)*255);
+          const a=Math.round((0.035+0.24*(v/100))*255);
           const i=(y*w+x)*4;
-          data[i]=245;data[i+1]=248;data[i+2]=255;data[i+3]=a;
+          data[i]=235;data[i+1]=242;data[i+2]=250;data[i+3]=a;
         }
       }
       ctx.putImageData(img,0,0);
     }
   });
+  cloudLayer=new CloudLayer();
   return cloudLayer;
 }
 
