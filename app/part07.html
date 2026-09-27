@@ -44,8 +44,109 @@ function windArrowSymbol(deg){return Number.isFinite(deg)?['↑','↗','→','�
 function uvText(u){if(u<3)return'laag';if(u<6)return'matig';if(u<8)return'hoog';if(u<11)return'zeer hoog';return'extreem'}
 function fmtTime(v){return v?new Date(v).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'--:--'}
 
-let radarMap=null, radarLayer=null, radarMarker=null;
-async function radar(lat,lon){try{const box=$('radar');box.innerHTML='';if(typeof L==='undefined')throw Error('Kaartbibliotheek kon niet laden');if(radarMap)radarMap.remove();radarMap=L.map(box,{zoomControl:true,attributionControl:true,scrollWheelZoom:true}).setView([lat,lon],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(radarMap);radarMarker=L.marker([lat,lon]).addTo(radarMap).bindPopup('📍 '+(currentLocation?.name||'Gekozen locatie')).openPopup();const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');if(!r.ok)throw Error('RainViewer '+r.status);const d=await r.json();const f=d.radar?.past?.at(-1);if(!f)throw Error('geen radarframe');const tileUrl=d.host+f.path+'/{z}/{x}/{y}/2/1_1.png';radarLayer=L.tileLayer(tileUrl,{opacity:.62,tileSize:256,minNativeZoom:7,maxNativeZoom:7,maxZoom:19,keepBuffer:4,updateWhenZooming:false,updateWhenIdle:true,attribution:'Radar © RainViewer'}).addTo(radarMap);radarMap.setView([lat,lon],10);setTimeout(()=>radarMap.invalidateSize(),100);log('✔ Kaart automatisch gecentreerd op '+Number(lat).toFixed(3)+', '+Number(lon).toFixed(3)+' • zoom 10');log('✔ RainViewer-radar als transparante kaartlaag toegevoegd')}catch(e){$('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';log('⚠ Radar: '+e.message)}}
+let radarMap=null,radarLayer=null,radarWmsLayer=null,radarMarker=null,cloudLayer=null,cloudTimer=null;
+function cloudColor(v){
+  v=Number(v);
+  if(!Number.isFinite(v))return 'transparent';
+  if(v<20)return '#dff6ff';
+  if(v<40)return '#b9d7e8';
+  if(v<60)return '#91a9bb';
+  if(v<80)return '#687888';
+  return '#394552';
+}
+function cloudOpacity(v){
+  v=Number(v);
+  if(!Number.isFinite(v))return 0;
+  return 0.12+Math.min(0.58,Math.max(0,v/100)*0.58);
+}
+async function updateCloudLayer(){
+  if(!radarMap)return;
+  const z=radarMap.getZoom();
+  if(z<4){if(cloudLayer){cloudLayer.clearLayers();}return;}
+  try{
+    const b=radarMap.getBounds(),south=b.getSouth(),north=b.getNorth(),west=b.getWest(),east=b.getEast();
+    const n=5,latStep=(north-south)/n,lonStep=(east-west)/n;
+    const lats=[],lons=[],cells=[];
+    for(let iy=0;iy<n;iy++){
+      const lat=south+(iy+.5)*latStep;
+      for(let ix=0;ix<n;ix++){
+        const lon=west+(ix+.5)*lonStep;
+        lats.push(lat);lons.push(lon);cells.push({lat,lon,iy,ix});
+      }
+    }
+    const url='https://api.open-meteo.com/v1/forecast?latitude='+lats.join(',')+'&longitude='+lons.join(',')+'&current=cloud_cover&timezone=auto';
+    const rr=await fetch(url);
+    if(!rr.ok)throw Error('bewolkingsdata '+rr.status);
+    const data=await rr.json(),rows=Array.isArray(data)?data:[data];
+    if(!cloudLayer)cloudLayer=L.layerGroup().addTo(radarMap);else cloudLayer.clearLayers();
+    cells.forEach((cell,i)=>{
+      const v=Number(rows[i]?.current?.cloud_cover);
+      if(!Number.isFinite(v))return;
+      const padLat=latStep*.52,padLon=lonStep*.52;
+      L.rectangle([[cell.lat-padLat,cell.lon-padLon],[cell.lat+padLat,cell.lon+padLon]],{
+        stroke:false,fillColor:cloudColor(v),fillOpacity:cloudOpacity(v),interactive:false
+      }).bindTooltip('☁️ Bewolking: '+Math.round(v)+'%',{sticky:true,direction:'center'}).addTo(cloudLayer);
+    });
+    log('✔ Bewolkingslaag bijgewerkt (Open-Meteo cloud cover)');
+  }catch(e){log('⚠ Bewolking: '+e.message)}
+}
+function radarMode(){
+  if(!radarMap)return;
+  const z=radarMap.getZoom();
+  if(z<7){
+    if(radarLayer&&radarMap.hasLayer(radarLayer))radarMap.removeLayer(radarLayer);
+    if(radarWmsLayer&&!radarMap.hasLayer(radarWmsLayer))radarWmsLayer.addTo(radarMap);
+  }else{
+    if(radarWmsLayer&&radarMap.hasLayer(radarWmsLayer))radarMap.removeLayer(radarWmsLayer);
+    if(radarLayer&&!radarMap.hasLayer(radarLayer))radarLayer.addTo(radarMap);
+  }
+}
+async function radar(lat,lon){
+  try{
+    const box=$('radar');box.innerHTML='';
+    if(typeof L==='undefined')throw Error('Kaartbibliotheek kon niet laden');
+    if(radarMap)radarMap.remove();
+    radarMap=L.map(box,{zoomControl:true,attributionControl:true,scrollWheelZoom:true}).setView([lat,lon],10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19,attribution:'© OpenStreetMap contributors'
+    }).addTo(radarMap);
+    radarMarker=L.marker([lat,lon]).addTo(radarMap)
+      .bindPopup('📍 '+(currentLocation?.name||'Gekozen locatie')).openPopup();
+
+    radarWmsLayer=L.tileLayer.wms('https://geoservices.knmi.nl/adagucserver?dataset=RADAR',{
+      layers:'RAD_NL25_PCP_CM',
+      styles:'precip-blue-transparent/nearest',
+      format:'image/png',
+      transparent:true,
+      version:'1.3.0',
+      opacity:.62,
+      attribution:'Radar © KNMI'
+    });
+
+    const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+    if(!r.ok)throw Error('RainViewer '+r.status);
+    const d=await r.json(),f=d.radar?.past?.at(-1);
+    if(!f)throw Error('geen radarframe');
+    const tileUrl=d.host+f.path+'/{z}/{x}/{y}/2/1_1.png';
+    radarLayer=L.tileLayer(tileUrl,{
+      opacity:.62,tileSize:256,minNativeZoom:7,maxNativeZoom:7,maxZoom:19,
+      keepBuffer:4,updateWhenZooming:false,updateWhenIdle:true,
+      attribution:'Radar © RainViewer'
+    });
+
+    radarMap.on('zoomend',()=>{radarMode();clearTimeout(cloudTimer);cloudTimer=setTimeout(updateCloudLayer,250)});
+    radarMap.on('moveend',()=>{clearTimeout(cloudTimer);cloudTimer=setTimeout(updateCloudLayer,250)});
+    radarMode();
+    setTimeout(()=>radarMap.invalidateSize(),100);
+    await updateCloudLayer();
+    log('✔ Kaart automatisch gecentreerd op '+Number(lat).toFixed(3)+', '+Number(lon).toFixed(3)+' • zoom 10');
+    log('✔ Radar: KNMI bij uitzoomen, RainViewer vanaf zoom 7');
+    log('✔ Bewolkingslaag toegevoegd op basis van Open-Meteo cloud cover');
+  }catch(e){
+    $('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';
+    log('⚠ Radar: '+e.message)
+  }
+}
 async function analyse(){ $('log').innerHTML='';const place=$('city').value.trim()||'Emmen';try{log('📍 Locatie zoeken: '+place);const g=await geocode(place);currentLocation={name:g.name,latitude:g.latitude,longitude:g.longitude,timezone:g.timezone||'auto'};const name=g.name+(g.admin1?', '+g.admin1:'');$('locationInfo').textContent='📍 '+Number(g.latitude).toFixed(3)+', '+Number(g.longitude).toFixed(3)+' • '+(g.timezone||'lokale tijd');log('✔ Eén locatiepakket aangemaakt voor alle systemen');log('🌍 '+name+' → alle modellen krijgen dezelfde coördinaten en lokale tijdzone');const [base,models,skill]=await Promise.all([baseWeather(g.latitude,g.longitude,g.timezone),loadModels(g.latitude,g.longitude,g.timezone),learnModels(g.latitude,g.longitude,g.timezone)]);renderBase(base,name,models.confidence,models.weightedTemp,models.weightedRain,models.weightedWind,models.agreement);renderSoilTemperature(base);updateSmartSoil(base);renderSoilFrost(base);renderTopSoilFrost(base);renderExtras(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);renderSurprises(base);renderV36Insights(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);log('✔ V36 slimme buienvenster- en omslaganalyse uitgevoerd');log('✔ Bodemtemperatuur op 0 / 6 / 18 / 54 cm verwerkt');log('✔ 48-uurs bodemtemperatuurtrend berekend');log('✔ Bodemvorst-AI bovenaan berekend met bodem + lucht + dauwpunt + wind + bewolking');log('✔ Open-Meteo basis bijgewerkt');log('✔ ECMWF / HARMONIE / ICON / GFS vergeleken voor dezelfde locatie');log('✔ Historische kalibratie bijgewerkt voor deze locatie');await radar(g.latitude,g.longitude);log('✔ Radar eveneens naar dezelfde locatie verplaatst')}catch(e){$('summary').textContent='De live analyse kon niet volledig worden uitgevoerd.';log('❌ '+e.message)}}
 $('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};analyse();
 </script>
