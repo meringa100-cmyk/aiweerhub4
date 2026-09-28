@@ -48,6 +48,20 @@ let radarMap=null, radarLayer=null, radarMarker=null;
 async function radar(lat,lon){try{const box=$('radar');box.innerHTML='';if(typeof L==='undefined')throw Error('Kaartbibliotheek kon niet laden');if(radarMap)radarMap.remove();radarMap=L.map(box,{zoomControl:true,attributionControl:true,scrollWheelZoom:true}).setView([lat,lon],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(radarMap);radarMarker=L.marker([lat,lon]).addTo(radarMap).bindPopup('📍 '+(currentLocation?.name||'Gekozen locatie')).openPopup();const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');if(!r.ok)throw Error('RainViewer '+r.status);const d=await r.json();const f=d.radar?.past?.at(-1);if(!f)throw Error('geen radarframe');const tileUrl=d.host+f.path+'/256/{z}/{x}/{y}/2/1_1.png';radarLayer=L.tileLayer(tileUrl,{opacity:.62,maxZoom:19,maxNativeZoom:7,tileSize:256,attribution:'Radar © RainViewer'}).addTo(radarMap);radarMap.setView([lat,lon],10);setTimeout(()=>radarMap.invalidateSize(),100);log('✔ Kaart automatisch gecentreerd op '+Number(lat).toFixed(3)+', '+Number(lon).toFixed(3)+' • zoom 10');log('✔ RainViewer-radar als transparante kaartlaag toegevoegd')}catch(e){$('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';log('⚠ Radar: '+e.message)}}
 let radarRefreshTimer=null;
 let nearbyRainState=false;
+function showRainToast(){
+  let t=document.getElementById('rainToast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='rainToast';
+    t.style.cssText='position:fixed;right:16px;top:16px;z-index:99999;max-width:340px;background:#123b5d;color:#fff;padding:15px 18px;border-radius:14px;box-shadow:0 8px 30px #0008;font-size:15px;border:1px solid #38bdf8';
+    document.body.appendChild(t);
+  }
+  t.innerHTML='🌧️ <b>Regen dichtbij!</b><br><span style="font-size:13px">Radar ziet neerslag binnen ongeveer 25 km van '+(currentLocation?.name||'de gekozen locatie')+'.</span>';
+  t.style.display='block';
+  clearTimeout(window.rainToastTimer);
+  window.rainToastTimer=setTimeout(()=>{t.style.display='none'},12000);
+}
+
 let nearbyRainWarningTimer=null;
 
 async function checkNearbyRain(){
@@ -94,7 +108,7 @@ async function checkNearbyRain(){
         warning.style.display='none';
       }
     }
-    if(raining && !nearbyRainState) log('⚠️ Radarwaarschuwing: regen binnen ongeveer 25 km van de locatie');
+    if(raining && !nearbyRainState){log('⚠️ Radarwaarschuwing: regen binnen ongeveer 25 km van de locatie');showRainToast();}
     nearbyRainState=raining;
   }catch(e){
     log('⚠ Radarwaarschuwing: '+e.message);
