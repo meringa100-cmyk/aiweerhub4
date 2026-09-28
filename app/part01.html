@@ -12,7 +12,7 @@
 .hidden-after-map{display:none!important}
 #topRadar{position:relative!important;left:auto!important;top:auto!important;width:auto!important;height:auto!important;min-height:0!important;opacity:1!important;overflow:visible!important;pointer-events:auto!important;margin:0 auto 18px!important;padding:16px!important}
 #topRadar .radarbox{width:100%!important;height:420px!important;min-height:420px!important}
-</style></style>
+</style>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#123b5d">
 <meta name="mobile-web-app-capable" content="yes">
@@ -35,7 +35,8 @@
 /* V49: alles onder de regenradar blijft in de app/code bewaard, maar wordt niet zichtbaar gemaakt. */
 #topRadar ~ header, #topRadar ~ main, #topRadar ~ section, #topRadar ~ div, #topRadar ~ footer { display:none !important; }
 </style>
-<style id="ai-temp-focus">#smartTop #smartAiTemp{letter-spacing:-2px}@media(max-width:650px){#smartTop #smartAiTemp{font-size:64px}}</style>\n</head>
+<style id="ai-temp-focus">#smartTop #smartAiTemp{letter-spacing:-2px}@media(max-width:650px){#smartTop #smartAiTemp{font-size:64px}}</style>
+</head>
 <body>
 <section id="smartTop" style="max-width:1100px;margin:18px auto;padding:20px;border-radius:22px;background:linear-gradient(135deg,#123b5d,#1d5f82);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.18)">
   <div style="font-size:14px;opacity:.85">📍 <span id="smartPlace">Emmen</span></div>
@@ -80,26 +81,4 @@
   </div>
   <div style="margin-top:12px;background:rgba(255,255,255,.14);padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.12)">
     <div style="font-size:16px;font-weight:700">🌱 Grondtemperatuur</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:9px"><script>
-(function(){
- async function directAIRain(){
-   const el=document.getElementById('smartAiRainMm');
-   if(!el || !window.currentLocation || !currentLocation.latitude || !currentLocation.longitude) return;
-   try{
-     const lat=Number(currentLocation.latitude),lon=Number(currentLocation.longitude),tz=encodeURIComponent(currentLocation.timezone||'auto');
-     const models=['knmi_harmonie_arome_netherlands','ecmwf_ifs025','icon_eu','gfs_seamless'];
-     const vals=await Promise.all(models.map(async m=>{
-       const u='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&hourly=precipitation&forecast_days=2&timezone='+tz+'&models='+m+'&_air='+Date.now();
-       const r=await fetch(u,{cache:'no-store'}); if(!r.ok) throw Error();
-       const d=await r.json(); const times=d.hourly?.time||[],p=d.hourly?.precipitation||[];
-       const idx=nearestIndex(times); let sum=0;
-       for(let j=idx;j<Math.min(idx+6,p.length);j++) sum+=Number(p[j])||0;
-       return sum;
-     }));
-     const good=vals.filter(Number.isFinite);
-     if(good.length) el.textContent=(good.reduce((a,b)=>a+b,0)/good.length).toFixed(1);
-   }catch(e){}
- }
- setInterval(directAIRain,5000); setTimeout(directAIRain,1000);
-})();
-</script>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:9px">
