@@ -56,7 +56,7 @@ function showRainToast(){
     t.style.cssText='position:fixed;right:16px;top:16px;z-index:99999;max-width:340px;background:#123b5d;color:#fff;padding:15px 18px;border-radius:14px;box-shadow:0 8px 30px #0008;font-size:15px;border:1px solid #38bdf8';
     document.body.appendChild(t);
   }
-  t.innerHTML='🌧️ <b>Regen dichtbij!</b><br><span style="font-size:13px">Radar ziet neerslag binnen ongeveer 25 km van '+(currentLocation?.name||'de gekozen locatie')+'.</span>';
+  t.innerHTML='🌧️ <b>Regen dichtbij!</b><br><span style="font-size:13px">Radar ziet neerslag binnen ongeveer 5 km van '+(currentLocation?.name||'de gekozen locatie')+'.</span>';
   t.style.display='block';
   clearTimeout(window.rainToastTimer);
   window.rainToastTimer=setTimeout(()=>{t.style.display='none'},12000);
@@ -87,7 +87,7 @@ async function checkNearbyRain(){
     ctx.drawImage(img,0,0);
     const px=ctx.getImageData(0,0,256,256).data;
     let hits=0;
-    const radiusPx=21; // circa 25 km rond het midden bij zoom 7
+    const radiusPx=5; // circa 5 km rond het midden bij zoom 7
     const cx=128,cy=128;
     for(let y=cy-radiusPx;y<=cy+radiusPx;y++){
       for(let x=cx-radiusPx;x<=cx+radiusPx;x++){
@@ -102,13 +102,13 @@ async function checkNearbyRain(){
     const warning=document.getElementById('radarWarning');
     if(warning){
       if(raining){
-        warning.innerHTML='🌧️ <b>Regen dichtbij '+(currentLocation.name||'jouw locatie')+'</b><br><span class="small">De radar ziet neerslag binnen ongeveer 25 km. De radar wordt elke 5 minuten bijgewerkt.</span>';
+        warning.innerHTML='🌧️ <b>Regen dichtbij '+(currentLocation.name||'jouw locatie')+'</b><br><span class="small">De radar ziet neerslag binnen ongeveer 5 km. De radar wordt elke 5 minuten bijgewerkt.</span>';
         warning.style.display='block';
       }else{
         warning.style.display='none';
       }
     }
-    if(raining && !nearbyRainState){log('⚠️ Radarwaarschuwing: regen binnen ongeveer 25 km van de locatie');showRainToast();}
+    if(raining && !nearbyRainState){log('⚠️ Radarwaarschuwing: regen binnen ongeveer 5 km van de locatie');showRainToast();}
     nearbyRainState=raining;
   }catch(e){
     log('⚠ Radarwaarschuwing: '+e.message);
