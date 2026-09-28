@@ -80,4 +80,26 @@
   </div>
   <div style="margin-top:12px;background:rgba(255,255,255,.14);padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.12)">
     <div style="font-size:16px;font-weight:700">🌱 Grondtemperatuur</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:9px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:9px"><script>
+(function(){
+ async function directAIRain(){
+   const el=document.getElementById('smartAiRainMm');
+   if(!el || !window.currentLocation || !currentLocation.latitude || !currentLocation.longitude) return;
+   try{
+     const lat=Number(currentLocation.latitude),lon=Number(currentLocation.longitude),tz=encodeURIComponent(currentLocation.timezone||'auto');
+     const models=['knmi_harmonie_arome_netherlands','ecmwf_ifs025','icon_eu','gfs_seamless'];
+     const vals=await Promise.all(models.map(async m=>{
+       const u='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&hourly=precipitation&forecast_days=2&timezone='+tz+'&models='+m+'&_air='+Date.now();
+       const r=await fetch(u,{cache:'no-store'}); if(!r.ok) throw Error();
+       const d=await r.json(); const times=d.hourly?.time||[],p=d.hourly?.precipitation||[];
+       const idx=nearestIndex(times); let sum=0;
+       for(let j=idx;j<Math.min(idx+6,p.length);j++) sum+=Number(p[j])||0;
+       return sum;
+     }));
+     const good=vals.filter(Number.isFinite);
+     if(good.length) el.textContent=(good.reduce((a,b)=>a+b,0)/good.length).toFixed(1);
+   }catch(e){}
+ }
+ setInterval(directAIRain,5000); setTimeout(directAIRain,1000);
+})();
+</script>
