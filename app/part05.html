@@ -59,6 +59,9 @@ function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind){
  $('smartRain').textContent=Number.isFinite(rain)?Math.round(rain):'--';
  $('smartSunrise').textContent=d.daily?.sunrise?.[0]?new Date(d.daily.sunrise[0]).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'--:--';
  $('smartSunset').textContent=d.daily?.sunset?.[0]?new Date(d.daily.sunset[0]).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'--:--';
+ const uv=Number(h.uv_index?.[idx]); const uvMax=Number(d.daily?.uv_index_max?.[0]);
+ $('smartUV').textContent=Number.isFinite(uv)?uv.toFixed(1):'--';
+ $('smartUVMax').textContent=Number.isFinite(uvMax)?'Max vandaag '+uvMax.toFixed(1):'Max vandaag --';
  const comfort = rain>=70?'🌧️ Regenkans is hoog':wind>=35?'💨 Stevige wind':actualTemp<5?'🥶 Fris/koud buiten':actualTemp>=28?'🥵 Warm buiten':'🟢 Comfortabel buitenweer';
  $('smartComfort').textContent=comfort;
  $('smartConfidence').textContent=confidence?Math.round(confidence):'--';
