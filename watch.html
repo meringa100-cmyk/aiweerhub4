@@ -8,19 +8,19 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#050b14;color:#eef4ff;font-family:Arial,sans-serif}
-.wrap{max-width:430px;margin:auto;padding:10px}
-.card{background:#132238;border-radius:18px;padding:14px;margin-bottom:9px}
-.top{text-align:center;background:linear-gradient(145deg,#123b5d,#087f9f)}
-.place{font-size:12px;opacity:.8}.temp{font-size:62px;font-weight:800;line-height:1;margin:7px 0}.sky{font-size:17px}
-.ai{margin-top:7px;font-size:13px}.ai b{font-size:18px}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.mini{background:#0b1729;border-radius:13px;padding:10px;text-align:center}
-.label{font-size:10px;color:#9fb3ca}.value{font-size:19px;font-weight:700;margin-top:3px}
-.advice{text-align:center;font-size:16px;font-weight:700;line-height:1.25}
-.hours{display:flex;gap:6px;overflow:hidden}.hour{min-width:55px;text-align:center;background:#0b1729;border-radius:11px;padding:8px 4px;font-size:11px}.hour b{font-size:16px}
+.wrap{width:100%;max-width:430px;margin:auto;padding:8px}
+.card{background:#132238;border-radius:20px;padding:12px;margin-bottom:7px}
+.top{text-align:center;background:linear-gradient(145deg,#123b5d,#087f9f);padding:13px 10px}
+.place{font-size:11px;opacity:.8;letter-spacing:.5px}.temp{font-size:66px;font-weight:800;line-height:.95;margin:5px 0}.sky{font-size:16px}
+.ai{margin-top:6px;font-size:12px}.ai b{font-size:17px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mini{background:#0b1729;border-radius:14px;padding:8px 5px;text-align:center}
+.label{font-size:9px;color:#9fb3ca}.value{font-size:20px;font-weight:800;margin-top:2px}
+.advice{text-align:center;font-size:18px;font-weight:800;line-height:1.15;padding:3px 0}
+.hours{display:flex;gap:5px;overflow:hidden}.hour{min-width:54px;text-align:center;background:#0b1729;border-radius:11px;padding:7px 3px;font-size:10px}.hour b{font-size:15px}
 button{width:100%;border:0;border-radius:14px;padding:12px;background:#0ea5e9;color:#fff;font-weight:700;font-size:15px}
 #status{font-size:10px;color:#8da3ba;text-align:center;padding:3px}
-@media(max-width:250px){.wrap{padding:6px}.card{padding:10px}.temp{font-size:48px}.value{font-size:16px}.advice{font-size:14px}}
+@media(max-width:250px){.wrap{padding:5px}.card{padding:9px}.temp{font-size:54px}.value{font-size:17px}.advice{font-size:15px}.hour{min-width:49px}}
 </style>
 </head>
 <body>
@@ -37,7 +37,7 @@ button{width:100%;border:0;border-radius:14px;padding:12px;background:#0ea5e9;co
 <div class="mini"><div class="label">💨 WIND</div><div class="value" id="wind">--</div></div>
 <div class="mini"><div class="label">🧭 RICHTING</div><div class="value" id="dir">--</div></div>
 </div>
-<div class="card"><div class="label">🧠 ADVIES</div><div class="advice" id="advice">Analyse...</div></div>
+<div class="card"><div class="label">🧠 AI-ADVIES</div><div class="advice" id="advice">Analyse...</div></div>
 <div class="card"><div class="label">⏱️ KOMENDE UREN</div><div class="hours" id="hours"></div></div>
 <button onclick="load()">🔄 VERVERS</button>
 <div id="status">AI WeerHub Watch • V49 companion</div>
