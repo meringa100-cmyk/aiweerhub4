@@ -1,0 +1,11 @@
+{
+  "name":"AI WeerHub Watch",
+  "short_name":"WeerHub Watch",
+  "start_url":"./watch.html",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#050b14",
+  "theme_color":"#087f9f",
+  "lang":"nl",
+  "description":"Compacte AI WeerHub-weergave voor telefoon en Galaxy Watch."
+}
