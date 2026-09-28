@@ -52,7 +52,9 @@ function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind,aiRainM
  $('smartTemp').textContent=safe(actualTemp,1);
  $('smartAiTemp').textContent=safe(aiModelTemp,1);
  $('smartFeels').textContent=safe(feels,0);
- $('smartAiRainMm').textContent=Number.isFinite(Number(aiRainMm))?Number(aiRainMm).toFixed(1):'--';
+ const baseRainMm6h=(h.precipitation||[]).slice(idx,idx+6).reduce((sum,v)=>sum+(Number(v)||0),0);
+ const aiRainAmount=Number.isFinite(Number(aiRainMm))?Number(aiRainMm):baseRainMm6h;
+ $('smartAiRainMm').textContent=Number.isFinite(aiRainAmount)?aiRainAmount.toFixed(1):'--';
  $('smartSky').textContent=sky;
  $('smartHum').textContent=Number.isFinite(humidity)?Math.round(humidity):'--';
  $('smartWind').textContent=Number.isFinite(wind)?Math.round(wind):'--';
