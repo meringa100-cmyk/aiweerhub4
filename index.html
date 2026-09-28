@@ -1,40 +1,438 @@
 <!doctype html>
 <html lang="nl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AI WeerHub Pro V49</title>
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#123b5d">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI WeerHub Pro V38 — AI Weercentrum</title>
 <style>
-html,body{margin:0;width:100%;height:100%;background:#07111f;color:#eef4ff;font-family:Arial,sans-serif}
-#loading{height:100%;display:flex;align-items:center;justify-content:center;font-size:20px}
-iframe{display:block;width:100%;height:100%;border:0}
-</style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#07111f;color:#eef4ff}header{background:linear-gradient(90deg,#1d4ed8,#0891b2);padding:18px}header h1{margin:0 0 12px;font-size:25px}main{max-width:1200px;margin:auto;padding:14px}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar input{flex:1;min-width:160px}input,button{padding:11px;border:0;border-radius:9px;font-size:15px}button{background:#0ea5e9;color:white;font-weight:bold;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}.card{background:#132238;border-radius:16px;padding:16px;box-shadow:0 5px 20px #0003}.wide{grid-column:1/-1}.big{font-size:56px;font-weight:bold}.badge{display:inline-block;padding:6px 11px;border-radius:99px;background:#166534}.bar{height:12px;background:#24364e;border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:#22c55e;transition:.4s}.muted{color:#a9bbcf}.notice{background:#0d1c30;padding:12px;border-radius:10px}.ok{color:#86efac}.warn{color:#fde68a}.error{color:#fca5a5}table{width:100%;border-collapse:collapse}td,th{padding:9px;border-bottom:1px solid #29415f;text-align:left;vertical-align:top}.models{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px;margin-top:10px}.mini{background:#0d1c30;padding:11px;border-radius:10px}.mini b{font-size:16px}.spread{margin-top:12px;padding:12px;background:#0b1b2d;border-radius:10px}.forecast{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.day{background:#0d1c30;padding:8px;border-radius:9px;text-align:center;min-height:110px}.radarbox{height:420px;border-radius:14px;overflow:hidden;background:#082f49;display:flex;align-items:center;justify-content:center}.radarbox img{width:100%;height:100%;object-fit:cover}.log{height:150px;overflow:auto;background:#07101b;border-radius:9px;padding:10px;font-family:monospace;font-size:13px}.small{font-size:12px}.pill{padding:4px 8px;border-radius:99px;background:#183552;display:inline-block}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.legend span{background:#0d1c30;padding:5px 8px;border-radius:8px}.footer{color:#8ea4bd;font-size:12px;margin:18px 2px}@media(max-width:650px){.forecast{grid-template-columns:repeat(2,1fr)}header h1{font-size:21px}.big{font-size:48px}}
+
+.timeline{display:grid;grid-template-columns:repeat(12,minmax(70px,1fr));gap:8px;overflow-x:auto}.titem{background:#0b1729;border:1px solid #243852;border-radius:12px;padding:9px;text-align:center;min-width:72px}.titem b{display:block;margin-bottom:5px}.tbar{height:70px;display:flex;align-items:flex-end;justify-content:center}.tfill{width:22px;border-radius:7px 7px 2px 2px;background:linear-gradient(180deg,#38bdf8,#2563eb);min-height:3px}.rainbar{height:8px;background:#243852;border-radius:99px;overflow:hidden;margin-top:7px}.rainbar i{display:block;height:100%;background:#38bdf8;border-radius:99px}.windmini{font-size:12px;color:#b9c7da;margin-top:5px}.legendmini{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:#b9c7da}
+<style>
+/* V44: alles onder het bovenste AI-dashboard blijft actief maar is visueel verborgen */
+.hidden-after-map{display:none!important}
+#topRadar{position:absolute!important;left:-10000px!important;top:0!important;width:1px!important;height:1px!important;min-height:1px!important;opacity:0!important;overflow:hidden!important;pointer-events:none!important;margin:0!important;padding:0!important}
+#topRadar .radarbox{width:1px!important;height:1px!important;min-height:1px!important}
+</style></style>
 </head>
 <body>
-<div id="loading">🌦️ AI WeerHub Pro laden...</div>
+<section id="smartTop" style="max-width:1100px;margin:18px auto;padding:20px;border-radius:22px;background:linear-gradient(135deg,#123b5d,#1d5f82);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.18)">
+  <div style="font-size:14px;opacity:.85">📍 <span id="smartPlace">Emmen</span></div>
+  <div style="display:flex;align-items:end;gap:14px;flex-wrap:wrap;margin-top:6px">
+    <div style="font-size:54px;font-weight:800;line-height:1"><span id="smartTemp">--</span>°C</div>
+    <div style="padding-bottom:5px;opacity:.9">Voelt als <b id="smartFeels">--</b>°C</div>
+    <div style="padding-bottom:5px;opacity:.9">🤖 AI-model <b id="smartAiTemp">--</b>°C</div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+    <span>☀️ <b id="smartSky">--</b></span><span>💧 <b id="smartHum">--</b>%</span><span>💨 <b id="smartWind">--</b> km/u <b id="smartDir">--</b></span><span>🌧️ <b id="smartRain">--</b>%</span>
+  </div>
+  <div style="margin-top:18px;padding:14px;border-radius:16px;background:rgba(255,255,255,.12)">
+    <div style="font-size:20px;font-weight:750" id="smartComfort">🟢 Analyse wordt bijgewerkt</div>
+    <div style="margin-top:5px;opacity:.9">🤖 AI-vertrouwen: <b id="smartConfidence">--</b>% · <span id="smartAgreement">Modelovereenkomst wordt berekend</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px">
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🌡️ <b>Komende 6 uur</b><div id="smartTrend" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🌧️ <b>Regen</b><div id="smartRainText" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">👕 <b>Buitenadvies</b><div id="smartAdvice" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🔄 <b>Verandering</b><div id="smartChange" style="margin-top:5px">--</div></div>
+  </div>
+  <div style="margin-top:12px;font-size:12px;opacity:.72">Laatst bijgewerkt: <span id="smartUpdated">--</span></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px">
+    <div style="background:rgba(255,255,255,.14);padding:14px;border-radius:14px">🌧️ <b>Buienvenster</b><div id="smartRainWindow" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.14);padding:14px;border-radius:14px">📉 <b>Weer verandert</b><div id="smartHourlyChange" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.14);padding:14px;border-radius:14px">🧭 <b>AI-besluit</b><div id="smartDecision" style="margin-top:5px">--</div></div>
+  </div>
+
+  <div id="smartInsights" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:12px">
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🧺 <b>Droogkans</b><div id="smartDry" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🌫️ <b>Dauwpunt</b><div id="smartDew" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🎯 <b>Beste buitenmoment</b><div id="smartWindow" style="margin-top:5px">--</div></div>
+    <div style="background:rgba(255,255,255,.1);padding:12px;border-radius:14px">🌡️ <b>Temperatuurtrend</b><div id="smartDelta" style="margin-top:5px">--</div></div>
+  </div>
+  <div style="margin-top:12px;background:rgba(255,255,255,.14);padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.12)">
+    <div style="font-size:16px;font-weight:700">❄️ Bodemvorst-AI</div>
+    <div id="smartSoilFrost" style="margin-top:6px;font-size:15px">Bodemvorst wordt berekend...</div>
+    <div id="smartSoilFrostDetail" class="small" style="margin-top:6px;opacity:.82">Bodemtemperatuur + luchttemperatuur + dauwpunt + wind + bewolking.</div>
+  </div>
+</section>
+
+<section id="topRadar" class="card wide" style="max-width:1100px;margin:0 auto 18px;padding:16px;"><h2>🛰️ Regenradar + kaart</h2><div id="radar" class="radarbox"><div class="notice">⏳ Kaart en live radar laden...</div></div><div class="legend"><span>🗺️ Kaart</span><span>🌧️ Radaroverlay</span><span>📍 Gekozen locatie</span></div><p class="muted">De kaart centreert en zoomt automatisch op de gekozen plaats. De radar wordt als transparante laag bovenop de kaart gelegd. De radarbron levert tegels tot zoom 7; daarboven worden de radarbeelden netjes opgeschaald. Radarbron: RainViewer.</p></section>
+
+<header class="hidden-after-map"><h1>🌦️ AI WeerHub Pro V43 — AI Weercentrum</h1><div class="toolbar"><input id="city" value="Emmen" placeholder="Plaats"><button id="analyse">🔄 Live analyse</button><button id="scan">🛰️ Wereldscan</button></div></header>
+<main class="hidden-after-map"><div class="grid">
+<section class="card"><h2 id="place">Emmen</h2><p class="pill" id="locationInfo">📍 Coördinaten laden...</p><div class="big" id="temp">--°C</div><p id="current">Live gegevens laden...</p><p class="small muted" id="updated">⏱️ Laatst bijgewerkt: --:--:--</p><div id="windNow" class="notice">💨 Wind laden...</div><span class="badge" id="conf">AI --%</span><p class="muted">Het AI-percentage is gebaseerd op overeenstemming tussen de aangesloten modeluitvoer; geen garantie.</p></section>
+<section class="card"><h2>🤖 AI conclusie</h2><p id="summary">Nog geen analyse.</p><div class="bar"><i id="confbar"></i></div><p id="advice"></p></section>
+<section class="card"><h2>📡 Bronstatus</h2><table id="sources"><tr><th>Model</th><th>Status</th><th>Levering</th></tr><tr><td>Open-Meteo basis</td><td id="om">⏳</td><td>Live basis</td></tr><tr><td>KNMI HARMONIE AROME NL</td><td id="harmonie">⏳</td><td>2 km-model via Open-Meteo</td></tr><tr><td>ECMWF IFS HRES</td><td id="ecmwf">⏳</td><td>9 km-model via Open-Meteo</td></tr><tr><td>DWD ICON EU</td><td id="icon">⏳</td><td>Model via Open-Meteo</td></tr><tr><td>NCEP GFS</td><td id="gfs">⏳</td><td>Model via Open-Meteo</td></tr></table></section>
+<section class="card wide"><h2>🧠 Live modelvergelijking</h2><p class="muted">De AI kijkt naar dezelfde locatie en hetzelfde tijdstip en vergelijkt temperatuur, neerslagkans en wind.</p><div id="models" class="models"></div><div id="spread" class="spread">⏳ Modelspreiding wordt berekend...</div></section>
+<section class="card wide"><h2>🧠 Zelflerende modelgewichten</h2><p class="muted">De Hub vergelijkt recente voorspellingen van de modellen met historische weerdata en gebruikt de foutmarge om de gewichten aan te passen. Dit is transparante statistische kalibratie, geen getraind neuraal netwerk.</p><div id="learning" class="models"><div class="mini">⏳ Historische modelprestatie laden...</div></div><div id="learningNote" class="spread">Nog geen kalibratie uitgevoerd.</div></section>
+
+<section class="card wide"><h2>🌱 Bodemtemperatuur</h2>
+<div id="soilTemp" class="notice">Bodemtemperatuur laden...</div>
+<p class="small muted">Modelmatige bodemtemperatuur op verschillende dieptes. De 0 cm-laag is de oppervlakte; dieper in de bodem reageert de temperatuur trager op het weer.</p>
+<section class="card wide"><h2>📈🌱 Bodemtemperatuur komende 48 uur</h2>
+<div id="soilForecast" class="notice">Bodemverwachting laden...</div>
+</section>
+<section class="card wide"><h2>❄️ Bodemvorst & tuinwaarschuwing</h2>
+<div id="soilFrost" class="notice">Bodemvorst analyseren...</div>
+</section>
+</section>
+<section class="card"><h2>💨 Windcentrum</h2><div id="windCenter" class="notice">Windanalyse laden...</div></section>
+<section class="card"><h2>☀️ Zon & UV</h2><div id="sun" class="notice">Zon- en UV-gegevens laden...</div></section>
+<section class="card"><h2>⛈️ Onweer & atmosfeer</h2><div id="storm" class="notice">Onweeranalyse laden...</div></section>
+<section class="card wide"><h2>🧠 AI in gewone mensentaal</h2><div id="humanAI" class="notice">Analyse wordt opgebouwd...</div></section>
+<section class="card wide"><h2>📈 24-uurs verwachting</h2><div id="hourly" class="forecast"></div></section>
+<section class="card wide"><h2>🗓️ 7-daagse verwachting</h2><div id="dailyForecast" class="forecast"></div></section>
+<section class="card wide"><h2>💨🌧️ Wind & regen per uur</h2><p class="muted">Een snelle visuele blik op de komende 12 uur. Hoogte = windsnelheid, balk = regenkans.</p><div id="timeline" class="timeline"></div><div class="legendmini"><span>💨 wind</span><span>🌧️ regenkans</span><span>💨💨 hoogste balk = sterkste wind</span></div></section>
+<section class="card"><h2>🚕 TaxiMaat</h2><p id="taxi">Analyse volgt...</p></section><section class="card"><h2>🌱 Tuincoach</h2><p id="garden">Analyse volgt...</p></section><section class="card"><h2>☀️ Zonnepanelen</h2><p id="solar">Analyse volgt...</p></section><section class="card"><h2>⚠️ Waarschuwingen</h2><p id="alerts">Geen analyse.</p></section>
+<section class="card wide"><h2>🧠 AI Mission Log</h2><div id="log" class="log"></div></section>
+</div><div class="footer">V43 • Bodemtemperatuur + 48-uurs bodemverwachting + slimme buienanalyse + radar direct onder het actuele weer • Live actuele waarde + AI-modelwaarde • Eén locatiepakket voor alle aangesloten systemen • Transparante modelvergelijking • V43 bodemtemperatuur + 48-uurs trend + buienvenster/omslaganalyse • KNMI-modeldata wordt via Open-Meteo geleverd; dit is geen rechtstreekse KNMI API-koppeling.</div></main>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
-(async()=>{
- try{
-   const parts=[];
-   for(let i=1;i<=8;i++){
-     const r=await fetch('./app/part'+String(i).padStart(2,'0')+'.html',{cache:'no-store'});
-     if(!r.ok) throw new Error('App-deel '+i+' kon niet worden geladen');
-     parts.push(await r.text());
-   }
-   const frame=document.createElement('iframe');
-   frame.title='AI WeerHub Pro';
-   frame.srcdoc=parts.join('');
-   document.body.innerHTML='';
-   document.body.appendChild(frame);
- }catch(e){
-   document.getElementById('loading').textContent='⚠️ AI WeerHub kon niet laden: '+e.message;
- }
-})();
-if('serviceWorker' in navigator){
- window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(console.warn));
+const $=id=>document.getElementById(id);let last=null;let currentLocation=null;let learnedStore=JSON.parse(localStorage.getItem('AIWeerHubWeightsV22')||'{}');
+function locationKey(lat,lon){return Number(lat).toFixed(3)+','+Number(lon).toFixed(3)}
+function weightsFor(lat,lon){const k=locationKey(lat,lon);return learnedStore[k]||{} }
+function saveWeights(lat,lon,w){learnedStore[locationKey(lat,lon)]=w;localStorage.setItem('AIWeerHubWeightsV22',JSON.stringify(learnedStore));}
+function log(s){$('log').innerHTML+=s+'<br>';$('log').scrollTop=$('log').scrollHeight}
+function code(c){if(c===0)return'☀️ helder';if(c<=3)return'🌤️ bewolkt';if(c<=48)return'🌫️ mistig';if(c<=67)return'🌧️ regen';if(c<=77)return'🌨️ sneeuw';if(c<=82)return'🌦️ buien';if(c>=95)return'⛈️ onweer';return'🌦️ wisselvallig'}
+async function geocode(place){const q=encodeURIComponent(place);const r=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+q+'&count=1&language=nl&format=json');if(!r.ok)throw Error('Geocoding '+r.status);const d=await r.json();if(!d.results?.length)throw Error('Plaats niet gevonden');return d.results[0]}
+async function baseWeather(lat,lon,timezone){const tz=encodeURIComponent(timezone||'auto');const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,relative_humidity_2m,apparent_temperature,dew_point_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure&hourly=temperature_2m,dew_point_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index,cloud_cover,cape,soil_temperature_0cm,soil_temperature_6cm,soil_temperature_18cm,soil_temperature_54cm,soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm,soil_moisture_27_to_81cm&daily=sunrise,sunset,sunshine_duration,uv_index_max,weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_gusts_10m_max&forecast_days=7&timezone='+tz;const r=await fetch(url+'&_ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error('Open-Meteo '+r.status);return r.json()}
+const modelDefs={
+ 'KNMI HARMONIE AROME NL':{id:'harmonie',model:'knmi_harmonie_arome_netherlands',role:'2 km NL'},
+ 'ECMWF IFS HRES':{id:'ecmwf',model:'ecmwf_ifs025',role:'9 km'},
+ 'DWD ICON EU':{id:'icon',model:'icon_eu',role:'Europa'},
+ 'NCEP GFS':{id:'gfs',model:'gfs_seamless',role:'globaal'}
+};
+async function modelWeather(lat,lon,model,timezone){const tz=encodeURIComponent(timezone||'auto');const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&hourly=temperature_2m,precipitation_probability,wind_speed_10m&forecast_days=2&timezone='+tz+'&models='+model;const r=await fetch(url+'&_ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(model+' '+r.status);return r.json()}
+function nearestIndex(times){const now=new Date();let idx=0,best=1e99;times.forEach((x,i)=>{const diff=Math.abs(new Date(x)-now);if(diff<best){best=diff;idx=i}});return idx}
+async function loadModels(lat,lon,timezone){
+ const learned=weightsFor(lat,lon);
+ $('models').innerHTML='';$('spread').textContent='⏳ Live modellen ophalen...';
+ const results=await Promise.all(Object.entries(modelDefs).map(async ([name,c])=>{try{const d=await modelWeather(lat,lon,c.model,timezone);const i=nearestIndex(d.hourly.time);return {name,id:c.id,role:c.role,temp:d.hourly.temperature_2m[i],rain:d.hourly.precipitation_probability[i],wind:d.hourly.wind_speed_10m[i],ok:true,time:d.hourly.time[i]}}catch(e){return {name,id:c.id,role:c.role,ok:false,error:e.message}}}));
+ results.forEach(x=>{const el=$(x.id);el.innerHTML=x.ok?'<span class="ok">🟢 live</span>':'<span class="error">🔴 fout</span>';$('models').innerHTML+=`<div class="mini"><b>${x.name}</b><br>${x.ok?`🟢 live<br>🌡️ ${Math.round(x.temp)}°C<br>🌧️ ${Math.round(x.rain)}%<br>💨 ${Math.round(x.wind)} km/u`:`🔴 ${x.error}`}<br><span class="small muted">${x.role}</span></div>`});
+ const good=results.filter(x=>x.ok);if(good.length){const temps=good.map(x=>x.temp),rains=good.map(x=>x.rain),winds=good.map(x=>x.wind);const avg=t=>t.reduce((a,b)=>a+b,0)/t.length;const ts=Math.max(...temps)-Math.min(...temps),rs=Math.max(...rains)-Math.min(...rains),ws=Math.max(...winds)-Math.min(...winds);const tempScore=Math.max(0,100-ts*20),rainScore=Math.max(0,100-rs*.6),windScore=Math.max(0,100-ws*2);const agreement=Math.round((tempScore+rainScore+windScore)/3); const weights=good.map(x=>learned[x.id]||1); const wsum=weights.reduce((a,b)=>a+b,0); const weightedTemp=good.reduce((a,x,i)=>a+x.temp*weights[i],0)/wsum; const weightedRain=good.reduce((a,x,i)=>a+x.rain*weights[i],0)/wsum; const weightedWind=good.reduce((a,x,i)=>a+x.wind*weights[i],0)/wsum; const learnedAvg=good.reduce((a,x,i)=>a+(Number(learned[x.id])||75)*weights[i],0)/wsum; const confidence=Math.round(Math.min(99,Math.max(1,agreement*.65+learnedAvg*.35))); $('spread').innerHTML=`🧠 <b>Modelovereenkomst ${agreement}%</b><br>🎯 <b>Gewogen AI-vertrouwen ${confidence}%</b><br>Samengestelde verwachting: 🌡️ ${weightedTemp.toFixed(1)}°C • 🌧️ ${Math.round(weightedRain)}% • 💨 ${Math.round(weightedWind)} km/u<br>Temperatuurspreiding: ${ts.toFixed(1)}°C • neerslagspreiding: ${Math.round(rs)} procentpunt • windspreiding: ${Math.round(ws)} km/u<br><span class="muted">${good.length}/4 modellen live. Historische modelprestatie bepaalt mee hoeveel invloed een model krijgt.</span>`;return {results,confidence,agreement,weightedTemp,weightedRain,weightedWind}}
+ $('spread').innerHTML='⚠️ Geen modeldata beschikbaar.';return {results,confidence:0,agreement:0,weightedTemp:null,weightedRain:null,weightedWind:null}
 }
+async function historicalObservation(lat,lon,timezone){
+ const end=new Date(); end.setDate(end.getDate()-1); const start=new Date(end); start.setDate(start.getDate()-13);
+ const iso=x=>x.toISOString().slice(0,10); const url='https://historical-forecast-api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&start_date='+iso(start)+'&end_date='+iso(end)+'&hourly=temperature_2m&timezone='+encodeURIComponent(timezone||'auto')+'&models=ecmwf_ifs025';
+ const r=await fetch(url); if(!r.ok) throw Error('Historische referentie '+r.status); return r.json();
+}
+async function modelSkill(lat,lon,def,timezone){
+ const end=new Date(); end.setDate(end.getDate()-1); const start=new Date(end); start.setDate(start.getDate()-13); const iso=x=>x.toISOString().slice(0,10);
+ const u='https://previous-runs-api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&start_date='+iso(start)+'&end_date='+iso(end)+'&hourly=temperature_2m_previous_day1&timezone='+encodeURIComponent(timezone||'auto')+'&models='+encodeURIComponent(def.model);
+ const [pr,obs]=await Promise.all([fetch(u),historicalObservation(lat,lon,timezone)]); if(!pr.ok||!obs) throw Error(def.model+' historisch niet beschikbaar');
+ const pd=await pr.json(); const oh=obs.hourly; const ph=pd.hourly; const map=new Map(oh.time.map((t,i)=>[t,oh.temperature_2m[i]])); let errs=[];
+ ph.time.forEach((t,i)=>{const a=ph.temperature_2m_previous_day1?.[i],b=map.get(t); if(Number.isFinite(a)&&Number.isFinite(b)) errs.push(Math.abs(a-b));});
+ if(!errs.length) throw Error('geen overlap'); const mae=errs.reduce((a,b)=>a+b,0)/errs.length; const score=Math.max(35,Math.min(99,100-mae*18)); return {mae,score,n:errs.length};
+}
+async function learnModels(lat,lon,timezone){
+ const learned=weightsFor(lat,lon);
+ $('learning').innerHTML=''; $('learningNote').textContent='⏳ Recente modelprestaties worden berekend...';
+ const out=await Promise.all(Object.entries(modelDefs).map(async ([name,def])=>{try{return {name,id:def.id,ok:true,...await modelSkill(lat,lon,def,timezone)}}catch(e){return {name,id:def.id,ok:false,error:e.message}}}));
+ out.forEach(x=>{if(x.ok){learned[x.id]=x.score; $('learning').innerHTML+=`<div class="mini"><b>${x.name}</b><br>🎯 Historische score: <b>${Math.round(x.score)}%</b><br>MAE temperatuur: ${x.mae.toFixed(2)}°C<br><span class="small muted">${x.n} vergelijkbare uren</span></div>`}else{$('learning').innerHTML+=`<div class="mini"><b>${x.name}</b><br><span class="warn">🟡 ${x.error}</span></div>`}});
+ const good=out.filter(x=>x.ok); if(good.length){good.forEach(x=>learned[x.id]=x.score); saveWeights(lat,lon,learned); $('learningNote').innerHTML='🧠 <b>Gewichten aangepast.</b> De historische foutmarge bepaalt hoeveel invloed elk model krijgt op de samengestelde verwachting. '+good.length+'/4 modellen konden worden gekalibreerd.';} else $('learningNote').textContent='⚠️ Historische kalibratie is tijdelijk niet beschikbaar; de live modelvergelijking blijft werken.';
+ return learned;
+}
+function windDir(deg){if(!Number.isFinite(deg))return 'onbekend';const dirs=['N','NNO','NO','ONO','O','OZO','ZO','ZZO','Z','ZZW','ZW','WZW','W','WNW','NW','NNW'];return dirs[Math.round(deg/22.5)%16]}
+function windArrow(deg){return Number.isFinite(deg)?Math.round(deg)+'°':'--°'}
+
+function renderSoilTemperature(d){
+ const h=d.hourly||{}, idx=nearestIndex(h.time||[]);
+ const s0=Number(h.soil_temperature_0cm?.[idx]);
+ const s6=Number(h.soil_temperature_6cm?.[idx]);
+ const s18=Number(h.soil_temperature_18cm?.[idx]);
+ const s54=Number(h.soil_temperature_54cm?.[idx]);
+ const m0=Number(h.soil_moisture_0_to_1cm?.[idx]);
+ const vals=[s0,s6,s18,s54];
+ if(!vals.some(Number.isFinite)){
+   $('soilTemp').innerHTML='⚠️ Bodemtemperatuur is voor deze locatie tijdelijk niet beschikbaar.';
+   return;
+ }
+ const card=(label,val)=>`<div class="mini"><b>${label}</b><br><span style="font-size:25px">${Number.isFinite(val)?val.toFixed(1)+'°C':'--'}</span></div>`;
+ let advice;
+ if(Number.isFinite(s6) && s6<2) advice='🥶 De bovenste bodemlaag is erg koud; groei en opname van water verlopen doorgaans traag.';
+ else if(Number.isFinite(s6) && s6<7) advice='🧊 De bodem is koud; voor warmteminnende planten zijn de omstandigheden nog beperkt.';
+ else if(Number.isFinite(s6) && s6<12) advice='🌱 De bodem begint op te warmen, maar blijft relatief koel.';
+ else if(Number.isFinite(s6) && s6<18) advice='🌱 Voor veel tuinactiviteiten is de bodemtemperatuur redelijk gematigd.';
+ else advice='☀️ De bovenste bodemlaag is relatief warm.';
+ const spread=(Number.isFinite(s6)&&Number.isFinite(s18))?(s6-s18):NaN;
+ const spreadText=Number.isFinite(spread)?(Math.abs(spread)<1?'De bodemtemperatuur is vrij stabiel met de diepte.':spread>0?'De bovenlaag is warmer dan de diepere bodem.':'De diepere bodem is warmer dan de bovenlaag.'):'';
+ $('soilTemp').innerHTML=`<div class="models">
+ ${card('Oppervlak · 0 cm',s0)}
+ ${card('Ondiep · 6 cm',s6)}
+ ${card('Wortelzone · 18 cm',s18)}
+ ${card('Dieper · 54 cm',s54)}
+ </div><div style="margin-top:12px">${advice}</div>
+ ${spreadText?`<div class="small muted" style="margin-top:6px">${spreadText}</div>`:''}
+ ${Number.isFinite(m0)?`<div class="small muted" style="margin-top:6px">💧 Bodemvocht 0–1 cm: ${m0.toFixed(3)} m³/m³</div>`:''}
+ <div class="small muted" style="margin-top:6px">🤖 Modelmatige bodemtemperatuur voor dezelfde locatie als de rest van de Hub.</div>`;
+
+ const hours=48;
+ const times=(h.time||[]).slice(idx,idx+hours);
+ const series=[
+   ['0 cm',h.soil_temperature_0cm||[]],
+   ['6 cm',h.soil_temperature_6cm||[]],
+   ['18 cm',h.soil_temperature_18cm||[]],
+   ['54 cm',h.soil_temperature_54cm||[]]
+ ];
+ let table=`<div style="overflow-x:auto"><table><tr><th>Tijd</th><th>0 cm</th><th>6 cm</th><th>18 cm</th><th>54 cm</th></tr>`;
+ for(let j=0;j<times.length;j++){
+   const dt=new Date(times[j]);
+   const fmt=dt.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+   const day=dt.toLocaleDateString('nl-NL',{weekday:'short'});
+   const cells=series.map(([,arr])=>{
+     const v=Number(arr[idx+j]);
+     return Number.isFinite(v)?`${v.toFixed(1)}°`:'--';
+   });
+   table+=`<tr><td><b>${day}</b> ${fmt}</td>${cells.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+ }
+ table+=`</table></div>`;
+
+ const trend=(arr)=>{
+   const first=Number(arr[idx]), end=Number(arr[Math.min(idx+47,arr.length-1)]);
+   if(!Number.isFinite(first)||!Number.isFinite(end)) return 'geen trend';
+   const d=end-first;
+   return `${d>=0?'+':''}${d.toFixed(1)}°C over 48 uur`;
+ };
+ const s6trend=trend(h.soil_temperature_6cm||[]);
+ const s18trend=trend(h.soil_temperature_18cm||[]);
+ let garden;
+ const future6=(h.soil_temperature_6cm||[]).slice(idx,idx+48).map(Number).filter(Number.isFinite);
+ if(future6.length){
+   const min6=Math.min(...future6),max6=Math.max(...future6);
+   if(min6<2) garden=`🥶 6 cm kan onder 2°C komen (${min6.toFixed(1)}°C).`;
+   else if(min6<7) garden=`🧊 6 cm blijft koel: minimum ongeveer ${min6.toFixed(1)}°C.`;
+   else if(max6>=18) garden=`🌱 6 cm kan oplopen tot ongeveer ${max6.toFixed(1)}°C.`;
+   else garden=`🌱 6 cm blijft de komende 48 uur tussen ${min6.toFixed(1)} en ${max6.toFixed(1)}°C.`;
+ } else garden='Geen 48-uurs bodemtrend beschikbaar.';
+ $('soilForecast').innerHTML=`<div class="notice"><b>48-uurs trend</b><br>6 cm: ${s6trend} • 18 cm: ${s18trend}<br>${garden}</div>${table}`;
+}
+
+
+function renderSoilFrost(d){
+ const h=d.hourly||{}, idx=nearestIndex(h.time||[]), hours=48;
+ const defs=[
+   {key:'soil_temperature_0cm',label:'oppervlak (0 cm)'},
+   {key:'soil_temperature_6cm',label:'ondiep (6 cm)'},
+   {key:'soil_temperature_18cm',label:'wortelzone (18 cm)'}
+ ];
+ const risks=defs.map(def=>{
+   const arr=(h[def.key]||[]).slice(idx,idx+hours).map(Number).filter(Number.isFinite);
+   if(!arr.length)return {...def,min:NaN,firstBelow:null,lastBelow:null,duration:0};
+   let min=Infinity,minIndex=-1,firstBelow=null,lastBelow=null,duration=0;
+   arr.forEach((v,i)=>{if(v<min){min=v;minIndex=i;} if(v<=0){if(firstBelow===null)firstBelow=i;lastBelow=i;duration++;}});
+   return {...def,min,minIndex,firstBelow,lastBelow,duration};
+ });
+ const times=(h.time||[]).slice(idx,idx+hours);
+ const when=i=>i!=null&&times[i]?new Date(times[i]).toLocaleString('nl-NL',{weekday:'short',hour:'2-digit',minute:'2-digit'}):'--';
+ const frost=risks.filter(r=>Number.isFinite(r.min)&&r.min<=0);
+ const near=risks.filter(r=>Number.isFinite(r.min)&&r.min>0&&r.min<=2);
+ let level='🟢 Geen bodemvorst verwacht';
+ let text='De bodem blijft volgens de 48-uurs modelverwachting boven 0°C op 0, 6 en 18 cm.';
+ if(frost.length){
+   const deepest=frost.reduce((a,b)=>({min:Math.min(a.min,b.min),depth:b.min<=a.min?b.depth:a.depth}),{min:Infinity,depth:''});
+   const surface=frost.find(r=>r.key==='soil_temperature_0cm');
+   const shallow=frost.find(r=>r.key==='soil_temperature_6cm');
+   const deep=frost.find(r=>r.key==='soil_temperature_18cm');
+   level=deep?'🔴 Diepere bodemvorst mogelijk':shallow?'🟠 Bodemvorst tot circa 6 cm mogelijk':'🟡 Oppervlaktevorst mogelijk';
+   const main=deep||shallow||surface;
+   text=`Koudste berekende bodemlaag: <b>${main.label}</b>, ${main.min.toFixed(1)}°C rond <b>${when(main.minIndex)}</b>.`;
+   if(main.duration) text+=` In de 48-uurs reeks zijn ongeveer <b>${main.duration} uur</b> op of onder 0°C berekend.`;
+   if(deep) text+=' Dit wijst op vorst die volgens het model dieper kan doordringen dan alleen het oppervlak.';
+   else if(shallow) text+=' De vorst blijft volgens het model vooral in de bovenste bodemlaag.';
+   else text+=' De vorst lijkt volgens het model vooral aan het bodemoppervlak te blijven.';
+ } else if(near.length){
+   const cold=near.reduce((a,b)=>a.min<b.min?a:b);
+   level='🟠 Bijna-bodemvorst';
+   text=`De koudste berekende laag komt rond <b>${cold.min.toFixed(1)}°C</b> uit (${cold.label}), rond <b>${when(cold.minIndex)}</b>. Kwetsbare planten kunnen dan extra aandacht nodig hebben.`;
+ } else if(risks.some(r=>Number.isFinite(r.min))){
+   const cold=risks.filter(r=>Number.isFinite(r.min)).reduce((a,b)=>a.min<b.min?a:b);
+   text=`De bodem blijft boven 2°C. De koudste laag is ${cold.label} met ongeveer ${cold.min.toFixed(1)}°C.`;
+ }
+ let advice='🌱 Voor normale beplanting is geen directe vorstmaatregel zichtbaar.';
+ if(frost.length) advice='🪴 Bescherm vorstgevoelige planten, potten en jonge aanplant. Dek kwetsbare planten tijdig af en let vooral op de genoemde diepte.';
+ else if(near.length) advice='🌿 Houd vorstgevoelige planten vannacht in de gaten; de bodem komt dicht bij het vriespunt.';
+ const rows=risks.map(r=>`<tr><td><b>${r.label}</b></td><td>${Number.isFinite(r.min)?r.min.toFixed(1)+'°C':'--'}</td><td>${r.firstBelow!==null?when(r.firstBelow):'niet onder 0°C'}</td><td>${r.duration? r.duration+' uur':'--'}</td></tr>`).join('');
+ $('soilFrost').innerHTML=`<div class="notice"><b>${level}</b><br>${text}<br><br>${advice}</div><div style="overflow-x:auto;margin-top:10px"><table><tr><th>Laag</th><th>Minimum</th><th>Eerste ≤ 0°C</th><th>Duur ≤ 0°C</th></tr>${rows}</table></div><div class="small muted" style="margin-top:8px">⚠️ Dit is een modelverwachting, geen meting met een thermometer in jouw tuin. Bodemvorst kan lokaal verschillen door beschutting, grondsoort, vocht en begroeiing.</div>`;
+}
+
+function renderBase(d,name,confidence,aiTemp=null,aiRain=null,aiWind=null,agreement=0){last=d;$('place').textContent=name;$('temp').textContent=Number(d.current.temperature_2m).toFixed(1)+'°C';$('current').textContent=code(d.current.weather_code)+' • voelt '+Math.round(d.current.apparent_temperature)+'°C • 💧 '+Math.round(d.current.relative_humidity_2m)+'% • 💨 '+Math.round(d.current.wind_speed_10m)+' km/u'+(aiTemp!=null?' • 🤖 AI-model '+Number(aiTemp).toFixed(1)+'°C':'');$('updated').textContent='⏱️ Laatst bijgewerkt: '+new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});$('windNow').innerHTML='💨 <b>Wind '+Math.round(d.current.wind_speed_10m)+' km/u</b> • richting <b>'+windDir(d.current.wind_direction_10m)+'</b> ('+windArrow(d.current.wind_direction_10m)+') • windstoten '+Math.round(d.current.wind_gusts_10m)+' km/u';$('om').innerHTML='<span class="ok">🟢 live</span>';
+ const h=d.hourly,idx=nearestIndex(h.time);let out='';for(let j=0;j<12;j++){const i=idx+j;if(i>=h.time.length)break;const t=new Date(h.time[i]);out+=`<div class="day"><b>${t.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</b><br>${Math.round(h.temperature_2m[i])}°<br>${code(h.weather_code[i])}<br>🌧️ ${h.precipitation_probability[i]}%</div>`}$('hourly').innerHTML=out;
+ const tl=[];const winds=h.wind_speed_10m||[];const rains=h.precipitation_probability||[];const maxWind=Math.max(...winds.slice(idx,idx+12),1);for(let j=0;j<12;j++){const k=idx+j;if(k>=h.time.length)break;const tt=new Date(h.time[k]);const w=Number(winds[k]??0);const rp=Number(rains[k]??0);const height=Math.max(3,Math.round((w/maxWind)*64));tl.push(`<div class="titem"><b>${tt.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</b><div class="tbar"><i class="tfill" style="height:${height}px"></i></div><div>💨 ${Math.round(w)}</div><div class="rainbar"><i style="width:${Math.max(0,Math.min(100,rp))}%"></i></div><div class="windmini">🌧️ ${Math.round(rp)}%</div></div>`)}$('timeline').innerHTML=tl.join('');
+ const rain=Math.max(...h.precipitation_probability.slice(idx,idx+6)),gust=Math.max(...h.wind_speed_10m.slice(idx,idx+6));const c=Math.max(0,Math.min(99,confidence));$('conf').textContent='AI '+c+'%';$('confbar').style.width=c+'%';$('summary').textContent=c>=80?'De modellen liggen grotendeels op één lijn. De huidige verwachting is daardoor relatief consistent.':c>=60?'De modellen vertonen enkele verschillen. De verwachting is bruikbaar, maar er is extra onzekerheid.':'De modellen verschillen duidelijk. Houd de verwachting de komende uren opnieuw in de gaten.';$('advice').textContent='Nu '+Number(d.current.temperature_2m).toFixed(1)+'°C • maximale neerslagkans komende 6 uur '+Math.round(rain)+'% • hoogste wind '+Math.round(gust)+' km/u.';$('taxi').textContent=rain<30&&gust<45?'🟢 Vooralsnog normale rijomstandigheden.':'🟠 Extra aandacht voor regen/wind tijdens ritten.';$('garden').textContent=rain>60?'💧 Waarschijnlijk weinig extra water nodig.':'🌱 Controleer de bodem; bij droogte water geven.';$('solar').textContent='☀️ Voor zonnepanelen zijn bewolking en straling bepalend; gebruik de modelverwachting als indicatie.';$('alerts').textContent=gust>=60||rain>=80?'⚠️ Verhoogde aandacht voor wind of neerslag.':'🟢 Geen duidelijke zware-weerssignalen in de komende uren.'; updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind); renderDaily(d)}
+function renderDaily(d){
+ const q=d.daily||{}; const days=q.time||[]; let out='';
+ for(let i=0;i<Math.min(7,days.length);i++){
+   const dt=new Date(days[i]+'T12:00:00');
+   const label=i===0?'Vandaag':dt.toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'numeric'});
+   const codeText=q.weather_code?.[i]!=null?code(q.weather_code[i]):'🌤️';
+   const tmax=q.temperature_2m_max?.[i]; const tmin=q.temperature_2m_min?.[i];
+   const rain=q.precipitation_probability_max?.[i]; const mm=q.precipitation_sum?.[i]; const gust=q.wind_gusts_10m_max?.[i];
+   out+=`<div class="day"><b>${label}</b><br><span style="font-size:24px">${codeText.split(' ')[0]}</span><br><b>${tmax!=null?Math.round(tmax):'--'}°</b> / ${tmin!=null?Math.round(tmin):'--'}°<br>🌧️ ${rain!=null?Math.round(rain):'--'}%<br>💧 ${mm!=null?Number(mm).toFixed(1):'--'} mm<br>💨 ${gust!=null?Math.round(gust):'--'} km/u</div>`;
+ }
+ $('dailyForecast').innerHTML=out||'<div class="notice">Geen dagverwachting beschikbaar.</div>';
+}
+
+function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind){
+ const h=d.hourly||{}; const idx=nearestIndex(h.time||[]);
+ const actualTemp=Number(d.current.temperature_2m);
+ const aiModelTemp=aiTemp!=null?Number(aiTemp):actualTemp;
+ const rain=aiRain!=null?Number(aiRain):Number(h.precipitation_probability?.[idx]??0);
+ const wind=aiWind!=null?Number(aiWind):Number(d.current.wind_speed_10m);
+ const feels=Number(d.current.apparent_temperature);
+ const humidity=Number(d.current.relative_humidity_2m);
+ const dir=windDir(d.current.wind_direction_10m);
+ const sky=code(d.current.weather_code);
+ const safe=(v,dec=1)=>Number.isFinite(v)?v.toFixed(dec):'--';
+ $('smartPlace').textContent=name||currentLocation?.name||'Gekozen locatie';
+ $('smartTemp').textContent=safe(actualTemp,1);
+ $('smartAiTemp').textContent=safe(aiModelTemp,1);
+ $('smartFeels').textContent=safe(feels,0);
+ $('smartSky').textContent=sky;
+ $('smartHum').textContent=Number.isFinite(humidity)?Math.round(humidity):'--';
+ $('smartWind').textContent=Number.isFinite(wind)?Math.round(wind):'--';
+ $('smartDir').textContent=dir;
+ $('smartRain').textContent=Number.isFinite(rain)?Math.round(rain):'--';
+ const comfort = rain>=70?'🌧️ Regenkans is hoog':wind>=35?'💨 Stevige wind':actualTemp<5?'🥶 Fris/koud buiten':actualTemp>=28?'🥵 Warm buiten':'🟢 Comfortabel buitenweer';
+ $('smartComfort').textContent=comfort;
+ $('smartConfidence').textContent=confidence?Math.round(confidence):'--';
+ $('smartAgreement').textContent=agreement?`Modelovereenkomst ${Math.round(agreement)}%`:'Modelovereenkomst wordt berekend';
+ const nextTemps=(h.temperature_2m||[]).slice(idx,idx+7).filter(Number.isFinite);
+ const nextRain=(h.precipitation_probability||[]).slice(idx,idx+4).filter(Number.isFinite);
+ const nextWind=(h.wind_speed_10m||[]).slice(idx,idx+4).filter(Number.isFinite);
+ if(nextTemps.length){const hours=6;const future=nextTemps.slice(1,1+hours);const start=actualTemp;const vals=future.filter(v=>Number.isFinite(Number(v))).map(Number);if(vals.length){const end=vals[vals.length-1];const lo=Math.min(...vals),hi=Math.max(...vals);if(Math.abs(hi-lo)<0.6){$('smartTrend').textContent=`Rond ${start.toFixed(1)}°C, met weinig verandering in de komende ${vals.length} uur.`;}else if(end>start){$('smartTrend').textContent=`Van ${start.toFixed(1)}°C naar ongeveer ${end.toFixed(1)}°C in de komende ${vals.length} uur.`;}else{$('smartTrend').textContent=`Van ${start.toFixed(1)}°C naar ongeveer ${end.toFixed(1)}°C in de komende ${vals.length} uur.`;}}else $('smartTrend').textContent=`Rond ${start.toFixed(1)}°C in de komende uren.`;}else $('smartTrend').textContent='Verwachting wordt opgehaald.';
+ $('smartRainText').textContent=rain<20?'Geen directe regen verwacht.':rain<50?'Een kleine kans op regen of een bui.':rain<70?'Regen of een bui is mogelijk.':'Regen is de komende uren waarschijnlijk.';
+ $('smartAdvice').textContent=rain>=60?'Lichte jas + paraplu binnen handbereik.':actualTemp<10?'Warme jas aanbevolen.':actualTemp<18?'Lichte jas of trui.':wind>=35?'Luchtige kleding, maar houd rekening met de wind.':'Lichte kleding is voldoende.';
+ const current={temp:actualTemp,rain,wind,time:Date.now()}; const prev=window.__aiWeatherPrev;
+ if(prev){const dt=actualTemp-prev.temp, dr=rain-prev.rain, dw=wind-prev.wind; const parts=[]; if(Math.abs(dt)>=0.2)parts.push(`${dt>0?'+':''}${dt.toFixed(1)}°C`); if(Math.abs(dr)>=3)parts.push(`${dr>0?'+':''}${Math.round(dr)}% regen`); if(Math.abs(dw)>=2)parts.push(`${dw>0?'+':''}${Math.round(dw)} km/u wind`); $('smartChange').textContent=parts.length?`Sinds vorige analyse: ${parts.join(' • ')}.`:'Sinds vorige analyse nauwelijks verandering.';}else $('smartChange').textContent='Eerste analyse op deze locatie.';
+ window.__aiWeatherPrev=current;
+ $('smartUpdated').textContent=new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function renderSurprises(d){
+ const h=d.hourly||{},idx=nearestIndex(h.time||[]),times=(h.time||[]).slice(idx,idx+7);
+ const temps=(h.temperature_2m||[]).slice(idx,idx+7),rains=(h.precipitation_probability||[]).slice(idx,idx+7),winds=(h.wind_speed_10m||[]).slice(idx,idx+7),codes=(h.weather_code||[]).slice(idx,idx+7);
+ const t=Number(d.current.temperature_2m),rh=Number(d.current.relative_humidity_2m),wind=Number(d.current.wind_speed_10m),rainNow=Number(d.current.precipitation||0);
+ const dew= t-((100-rh)/5);
+ const dryScore=Math.max(0,Math.min(100,Math.round(100-(rh-35)*1.05-(Math.max(...rains,0))*0.55-wind*0.15-(rainNow>0?20:0))));
+ const dryText=dryScore>=75?'🟢 Goed droogweer':dryScore>=50?'🟡 Redelijk droogweer':'🔴 Slecht droogweer';
+ const dryHint=dryScore>=75?'Wasgoed kan buiten redelijk goed drogen.':dryScore>=50?'Drogen kan, maar het gaat langzaam.':'Buiten drogen wordt waarschijnlijk lastig.';
+ $('smartDry').textContent=`${dryText} (${dryScore}/100). ${dryHint}`;
+ const dewGap=t-dew; const dewText=dewGap<2?'Vochtige lucht: kans op dauw of een klamme nacht.':dewGap<5?'Luchtvochtigheid relatief hoog.':'Droge lucht ten opzichte van de temperatuur.';
+ $('smartDew').textContent=`${dew.toFixed(1)}°C. ${dewText}`;
+ let best=-1,bestScore=-Infinity;
+ for(let i=0;i<times.length;i++){
+   const rr=Number(rains[i]??100),ww=Number(winds[i]??99),tt=Number(temps[i]??t),cc=Number(codes[i]??0);
+   const score=(100-rr)*0.65+Math.max(0,40-ww)*0.55-Math.abs(tt-18)*1.2-(cc>=95?35:0);
+   if(score>bestScore){bestScore=score;best=i;}
+ }
+ if(best>=0){const dt=new Date(times[best]);const label=dt.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});$('smartWindow').textContent=`Rond ${label}: ${Math.round(rains[best]??0)}% regen, ${Math.round(temps[best]??t)}°C en ${Math.round(winds[best]??wind)} km/u wind.`;}else $('smartWindow').textContent='Geen betrouwbaar buitenmoment berekend.';
+ const end=Number(temps.at(-1)); const delta=Number.isFinite(end)?end-t:NaN;
+ $('smartDelta').textContent=Number.isFinite(delta)?`${delta>=0?'+':''}${delta.toFixed(1)}°C over ongeveer 6 uur.`:'Trend niet beschikbaar.';
+}
+
+
+function renderV36Insights(d,aiTemp=null,aiRain=null,aiWind=null,aiConfidence=null){
+ const h=d.hourly||{}, idx=nearestIndex(h.time||[]);
+ const count=Math.min(12,(h.time||[]).length-idx);
+ const times=(h.time||[]).slice(idx,idx+count);
+ const rains=(h.precipitation_probability||[]).slice(idx,idx+count).map(Number);
+ const temps=(h.temperature_2m||[]).slice(idx,idx+count).map(Number);
+ const winds=(h.wind_speed_10m||[]).slice(idx,idx+count).map(Number);
+ const codes=(h.weather_code||[]).slice(idx,idx+count).map(Number);
+ let rainStart=-1,rainEnd=-1;
+ for(let i=0;i<rains.length;i++){
+   if(rains[i]>=45 || codes[i]>=51){if(rainStart<0)rainStart=i;rainEnd=i;}
+   else if(rainStart>=0 && i-rainEnd>=2)break;
+ }
+ if(rainStart>=0){
+   const s=new Date(times[rainStart]),e=new Date(times[rainEnd]);
+   const peak=Math.max(...rains.slice(rainStart,rainEnd+1));
+   $('smartRainWindow').textContent=`Waarschijnlijk venster ${s.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}–${e.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}, piek ${Math.round(peak)}%.`;
+ }else $('smartRainWindow').textContent='Geen duidelijk buienvenster in de komende 12 uur.';
+ let largest=-1,scoreBest=0;
+ for(let i=1;i<times.length;i++){
+   const score=Math.abs(temps[i]-temps[i-1])*4+Math.abs(rains[i]-rains[i-1])*.35+Math.abs(winds[i]-winds[i-1])*.8;
+   if(score>scoreBest){scoreBest=score;largest=i;}
+ }
+ if(largest>0){
+   const parts=[],dt=temps[largest]-temps[largest-1],dr=rains[largest]-rains[largest-1],dw=winds[largest]-winds[largest-1];
+   if(Math.abs(dt)>=.4)parts.push(`${dt>0?'+':''}${dt.toFixed(1)}°C`);
+   if(Math.abs(dr)>=10)parts.push(`${dr>0?'+':''}${Math.round(dr)}% regen`);
+   if(Math.abs(dw)>=5)parts.push(`${dw>0?'+':''}${Math.round(dw)} km/u wind`);
+   $('smartHourlyChange').textContent=parts.length?`Rond ${new Date(times[largest]).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}: ${parts.join(' • ')}.`:'Geen opvallende omslag.';
+ }else $('smartHourlyChange').textContent='Geen opvallende omslag in de komende uren.';
+ const currentTemp=Number(d.current.temperature_2m),currentWind=Number(d.current.wind_speed_10m);
+ const nextRain=Math.max(...rains.filter(Number.isFinite),0),nextWind=Math.max(...winds.filter(Number.isFinite),currentWind);
+ const confidence=Number(aiConfidence||0);
+ let decision;
+ if(nextRain>=70)decision='🌧️ Wachten met een langere buitenactiviteit: regen is waarschijnlijk.';
+ else if(nextWind>=55)decision='💨 Buiten kan, maar houd rekening met stevige wind(stoten).';
+ else if(currentTemp<7)decision='🧥 Buiten kan prima, maar neem een warme jas.';
+ else if(nextRain<25&&nextWind<35)decision='🟢 Dit ziet er uit als een relatief rustig buitenvenster.';
+ else decision='🟡 Buiten kan, maar de omstandigheden kunnen de komende uren wisselen.';
+ if(confidence<60)decision+=' De modellen verschillen behoorlijk, dus hercontrole is verstandig.';
+ else if(confidence>=80)decision+=' De modellen zijn het redelijk goed met elkaar eens.';
+ $('smartDecision').textContent=decision;
+}
+
+function renderTopSoilFrost(d){
+ const h=d.hourly||{}, idx=nearestIndex(h.time||[]), times=(h.time||[]).slice(idx,idx+48);
+ const s0=(h.soil_temperature_0cm||[]).slice(idx,idx+48).map(Number);
+ const s6=(h.soil_temperature_6cm||[]).slice(idx,idx+48).map(Number);
+ const s18=(h.soil_temperature_18cm||[]).slice(idx,idx+48).map(Number);
+ const air=(h.temperature_2m||[]).slice(idx,idx+48).map(Number);
+ const dew=(h.dew_point_2m||[]).slice(idx,idx+48).map(Number);
+ const wind=(h.wind_speed_10m||[]).slice(idx,idx+48).map(Number);
+ const cloud=(h.cloud_cover||[]).slice(idx,idx+48).map(Number);
+ if(!times.length || !s0.length){$('smartSoilFrost').textContent='⚠️ Bodemvorstanalyse tijdelijk niet beschikbaar.';return;}
+ const finiteMin=a=>{const vals=a.filter(Number.isFinite);return vals.length?Math.min(...vals):NaN};
+ const mins={s0:finiteMin(s0),s6:finiteMin(s6),s18:finiteMin(s18),air:finiteMin(air)};
+ const frostHours=a=>a.filter(v=>Number.isFinite(v)&&v<=0).length;
+ const nearHours=a=>a.filter(v=>Number.isFinite(v)&&v<=2).length;
+ let risk='🟢 Geen duidelijke bodemvorst verwacht', score=0;
+ if(mins.s0<=0)score+=3; else if(mins.s0<=2)score+=2;
+ if(mins.s6<=0)score+=4; else if(mins.s6<=2)score+=2;
+ if(mins.s18<=0)score+=5; else if(mins.s18<=2)score+=1;
+ if(mins.air<=0)score+=1;
+ const coldIdx=air.reduce((best,v,i)=>Number.isFinite(v)&&(!Number.isFinite(air[best])||v<air[best])?i:best,0);
+ const cloudAt=Number(cloud[coldIdx]), windAt=Number(wind[coldIdx]), dewAt=Number(dew[coldIdx]), airAt=Number(air[coldIdx]);
+ // Extra cooling signal: clear/dry/light-wind nights are more supportive of surface cooling.
+ if(Number.isFinite(cloudAt)&&cloudAt<35)score+=1;
+ if(Number.isFinite(windAt)&&windAt<12)score+=1;
+ if(Number.isFinite(airAt)&&Number.isFinite(dewAt)&&airAt-dewAt<2.5)score+=1;
+ if(score>=7 || mins.s18<=0)risk='🔴 Serieuze bodemvorstkans';
+ else if(score>=4 || mins.s6<=0)risk='🟠 Bodemvorst mogelijk';
+ else if(score>=2 || mins.s0<=2 || mins.s6<=2)risk='🟡 Nabij bodemvorst';
+ const layers=[];
+ if(mins.s0<=0)layers.push('oppervlak');
+ if(mins.s6<=0)layers.push('6 cm');
+ if(mins.s18<=0)layers.push('18 cm');
+ const coldLayer=[['0 cm',mins.s0],['6 cm',mins.s6],['18 cm',mins.s18]].filter(x=>Number.isFinite(x[1])).sort((a,b)=>a[1]-b[1])[0];
+ const coldTime=coldLayer?(()=>{const arr=coldLayer[0]==='0 cm'?s0:coldLayer[0]==='6 cm'?s6:s18;let bi=0;for(let i=1;i<arr.length;i++)if(Number.isFinite(arr[i])&&arr[i]<arr[bi])bi=i;return times[bi]?new Date(times[bi]):null;})():null;
+ let advice='🌱 Kwetsbare planten lijken voorlopig niet specifiek door bodemvorst bedreigd.';
+ if(mins.s18<=0) advice='🛡️ Diepere bodemvorst verwacht: bescherm vorstgevoelige planten en wortelzones extra.';
+ else if(mins.s6<=0) advice='🛡️ Kans op vorst in de ondiepe bodem: let vooral op jonge/vorstgevoelige planten.';
+ else if(mins.s0<=0) advice='🧊 Vooral oppervlaktevorst mogelijk; potplanten en kwetsbare bladeren kunnen wel schade oplopen.';
+ else if(mins.s0<=2 || mins.s6<=2) advice='👀 De bodem komt dicht bij het vriespunt. Kwetsbare planten even extra in de gaten houden.';
+ const detail=[];
+ if(Number.isFinite(mins.s0))detail.push(`0 cm min ${mins.s0.toFixed(1)}°C`);
+ if(Number.isFinite(mins.s6))detail.push(`6 cm min ${mins.s6.toFixed(1)}°C`);
+ if(Number.isFinite(mins.s18))detail.push(`18 cm min ${mins.s18.toFixed(1)}°C`);
+ if(Number.isFinite(mins.air))detail.push(`lucht min ${mins.air.toFixed(1)}°C`);
+ const atmosphere=Number.isFinite(cloudAt)&&Number.isFinite(windAt)?`Koudste lucht rond ${coldTime?coldTime.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'onbekend'}; bewolking ${Math.round(cloudAt)}%, wind ${Math.round(windAt)} km/u.`:'';
+ $('smartSoilFrost').innerHTML=`<b>${risk}</b> • ${advice}`;
+ $('smartSoilFrostDetail').innerHTML=`${detail.join(' • ')}${coldLayer&&coldTime?`<br>❄️ Koudste bodemlaag: <b>${coldLayer[0]}</b> om ${coldTime.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} (${coldLayer[1].toFixed(1)}°C).`:''}<br>${atmosphere}<br><span style="opacity:.7">Modelinschatting voor de gekozen locatie; bodemvorst is niet hetzelfde als alleen nachtvorst aan de lucht.</span>`;
+}
+
+function renderExtras(d,aiTemp=null,aiRain=null,aiWind=null,aiConfidence=null){const h=d.hourly,idx=nearestIndex(h.time);const wind=d.current.wind_speed_10m,gust=d.current.wind_gusts_10m??wind,deg=d.current.wind_direction_10m;const maxG=Math.max(...(h.wind_gusts_10m||[]).slice(idx,idx+12));$('windCenter').innerHTML=`<div style="font-size:40px;text-align:center">${windArrowSymbol(deg)}</div><b>${Math.round(wind)} km/u</b> • ${windDir(deg)} (${Math.round(deg)}°)<br>💨 Windstoten nu <b>${Math.round(gust)} km/u</b><br>🌬️ Beaufort <b>${beaufort(wind)}</b><br><span class="muted">Komende 12 uur maximaal ${Math.round(maxG||gust)} km/u windstoten.</span>`;const uv=Math.max(...(h.uv_index||[]).slice(idx,idx+12));const cloud=h.cloud_cover?.[idx];const daily=d.daily||{};$('sun').innerHTML=`🌅 Zonsopkomst <b>${fmtTime(daily.sunrise?.[0])}</b><br>🌇 Zonsondergang <b>${fmtTime(daily.sunset?.[0])}</b><br>☀️ Zonuren vandaag <b>${daily.sunshine_duration?.[0]!=null?(daily.sunshine_duration[0]/3600).toFixed(1):'--'} uur</b><br>🕶️ Maximale UV-index <b>${uv.toFixed(1)}</b> — ${uvText(uv)}<br>☁️ Bewolking nu <b>${cloud??'--'}%</b>`;const stormCodes=(h.weather_code||[]).slice(idx,idx+12).filter(c=>c>=95).length;const cape=Math.max(...(h.cape||[]).slice(idx,idx+12),0);$('storm').innerHTML=stormCodes?`⚡ ${stormCodes} uur/uren met een onweercode in de komende 12 uur.`:'🟢 Geen onweercode in de komende 12 uur.';if(cape>500)$('storm').innerHTML+=`<br>🌩️ CAPE maximaal ongeveer ${Math.round(cape)} J/kg; dat wijst op meer atmosferische onstabiliteit.`;$('storm').innerHTML+='<br><span class="muted">Dit is geen directe bliksemdetectie.</span>';const conf=aiConfidence!=null?Number(aiConfidence):(Number($('conf').textContent.replace(/\D/g,''))||0);const temp=aiTemp!=null?Number(aiTemp):Number(d.current.temperature_2m);const rain=aiRain!=null?Number(aiRain):Math.max(...h.precipitation_probability.slice(idx,idx+12));const aiWindNow=aiWind!=null?Number(aiWind):Number(d.current.wind_speed_10m);let text=`In ${currentLocation?.name||'de gekozen plaats'} is het volgens de actuele AI-combinatie nu ongeveer ${temp.toFixed(1)}°C, met ${code(d.current.weather_code).replace(/^\S+\s/,'')}. `;text+=rain>=70?'De kans op regen is de komende uren duidelijk aanwezig. ':rain>=40?'Er is een redelijke kans op regen. ':'De regenkans blijft voorlopig beperkt. ';text+=aiWindNow>=55?'De wind kan stevig zijn. ':aiWindNow>=35?'De wind kan soms flink aantrekken. ':'';text+=uv>=6?`De zonkracht kan oplopen tot UV ${uv.toFixed(1)}. `:'';text+=conf>=80?'De modellen liggen behoorlijk dicht bij elkaar, dus de actuele AI-inschatting is relatief stabiel.':conf>=60?'De modellen verschillen wat van elkaar; de actuele AI-temperatuur is daarom een samengestelde inschatting.':'De modellen verschillen duidelijk; neem de actuele AI-temperatuur met wat extra voorzichtigheid.';$('humanAI').textContent=text}
+function beaufort(kmh){if(kmh<1)return 0;if(kmh<6)return 1;if(kmh<12)return 2;if(kmh<20)return 3;if(kmh<29)return 4;if(kmh<39)return 5;if(kmh<50)return 6;if(kmh<62)return 7;if(kmh<75)return 8;if(kmh<89)return 9;if(kmh<103)return 10;if(kmh<118)return 11;return 12}
+function windArrowSymbol(deg){return Number.isFinite(deg)?['↑','↗','→','↘','↓','↙','←','↖'][Math.round(deg/45)%8]:'•'}
+function uvText(u){if(u<3)return'laag';if(u<6)return'matig';if(u<8)return'hoog';if(u<11)return'zeer hoog';return'extreem'}
+function fmtTime(v){return v?new Date(v).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}):'--:--'}
+
+let radarMap=null, radarLayer=null, radarMarker=null;
+async function radar(lat,lon){try{const box=$('radar');box.innerHTML='';if(typeof L==='undefined')throw Error('Kaartbibliotheek kon niet laden');if(radarMap)radarMap.remove();radarMap=L.map(box,{zoomControl:true,attributionControl:true,scrollWheelZoom:true}).setView([lat,lon],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(radarMap);radarMarker=L.marker([lat,lon]).addTo(radarMap).bindPopup('📍 '+(currentLocation?.name||'Gekozen locatie')).openPopup();const r=await fetch('https://api.rainviewer.com/public/weather-maps.json');if(!r.ok)throw Error('RainViewer '+r.status);const d=await r.json();const f=d.radar?.past?.at(-1);if(!f)throw Error('geen radarframe');const tileUrl=d.host+f.path+'/{z}/{x}/{y}/2/1_1.png';radarLayer=L.tileLayer(tileUrl,{opacity:.70,maxNativeZoom:7,maxZoom:19,tileSize:256,attribution:'Radar © RainViewer'}).addTo(radarMap);radarMap.setView([lat,lon],10);setTimeout(()=>radarMap.invalidateSize(),100);log('✔ Kaart automatisch gecentreerd op '+Number(lat).toFixed(3)+', '+Number(lon).toFixed(3)+' • zoom 10');log('✔ RainViewer-radar als transparante kaartlaag toegevoegd')}catch(e){$('radar').innerHTML='<div class="notice">⚠️ Radar/kaart tijdelijk niet beschikbaar.</div>';log('⚠ Radar: '+e.message)}}
+async function analyse(){ $('log').innerHTML='';const place=$('city').value.trim()||'Emmen';try{log('📍 Locatie zoeken: '+place);const g=await geocode(place);currentLocation={name:g.name,latitude:g.latitude,longitude:g.longitude,timezone:g.timezone||'auto'};const name=g.name+(g.admin1?', '+g.admin1:'');$('locationInfo').textContent='📍 '+Number(g.latitude).toFixed(3)+', '+Number(g.longitude).toFixed(3)+' • '+(g.timezone||'lokale tijd');log('✔ Eén locatiepakket aangemaakt voor alle systemen');log('🌍 '+name+' → alle modellen krijgen dezelfde coördinaten en lokale tijdzone');const [base,models,skill]=await Promise.all([baseWeather(g.latitude,g.longitude,g.timezone),loadModels(g.latitude,g.longitude,g.timezone),learnModels(g.latitude,g.longitude,g.timezone)]);renderBase(base,name,models.confidence,models.weightedTemp,models.weightedRain,models.weightedWind,models.agreement);renderSoilTemperature(base);renderSoilFrost(base);renderTopSoilFrost(base);renderExtras(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);renderSurprises(base);renderV36Insights(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);log('✔ V36 slimme buienvenster- en omslaganalyse uitgevoerd');log('✔ Bodemtemperatuur op 0 / 6 / 18 / 54 cm verwerkt');log('✔ 48-uurs bodemtemperatuurtrend berekend');log('✔ Bodemvorst-AI bovenaan berekend met bodem + lucht + dauwpunt + wind + bewolking');log('✔ Open-Meteo basis bijgewerkt');log('✔ ECMWF / HARMONIE / ICON / GFS vergeleken voor dezelfde locatie');log('✔ Historische kalibratie bijgewerkt voor deze locatie');await radar(g.latitude,g.longitude);log('✔ Radar eveneens naar dezelfde locatie verplaatst')}catch(e){$('summary').textContent='De live analyse kon niet volledig worden uitgevoerd.';log('❌ '+e.message)}}
+$('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};analyse();
 </script>
-</body>
-</html>
+</body></html>
