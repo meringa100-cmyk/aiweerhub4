@@ -66,5 +66,6 @@ async function load(){
 }
 load();setInterval(load,300000);
 </script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("./watch-sw.js").catch(()=>{});</script>
 </body>
 </html>
