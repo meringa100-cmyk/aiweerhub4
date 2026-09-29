@@ -6,6 +6,36 @@ function renderBase(d,name,confidence,aiTemp=null,aiRain=null,aiWind=null,agreem
  const h=d.hourly,idx=nearestIndex(h.time);let out='';for(let j=0;j<12;j++){const i=idx+j;if(i>=h.time.length)break;const t=new Date(h.time[i]);out+=`<div class="day"><b>${t.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</b><br>${Math.round(h.temperature_2m[i])}°<br>${code(h.weather_code[i])}<br>🌧️ ${h.precipitation_probability[i]}%</div>`}$('hourly').innerHTML=out;
  const tl=[];const winds=h.wind_speed_10m||[];const rains=h.precipitation_probability||[];const maxWind=Math.max(...winds.slice(idx,idx+12),1);for(let j=0;j<12;j++){const k=idx+j;if(k>=h.time.length)break;const tt=new Date(h.time[k]);const w=Number(winds[k]??0);const rp=Number(rains[k]??0);const height=Math.max(3,Math.round((w/maxWind)*64));tl.push(`<div class="titem"><b>${tt.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</b><div class="tbar"><i class="tfill" style="height:${height}px"></i></div><div>💨 ${Math.round(w)}</div><div class="rainbar"><i style="width:${Math.max(0,Math.min(100,rp))}%"></i></div><div class="windmini">🌧️ ${Math.round(rp)}%</div></div>`)}$('timeline').innerHTML=tl.join('');
  const rain=Math.max(...h.precipitation_probability.slice(idx,idx+6)),gust=Math.max(...h.wind_speed_10m.slice(idx,idx+6));const c=Math.max(0,Math.min(99,confidence));$('conf').textContent='AI '+c+'%';$('confbar').style.width=c+'%';$('summary').textContent=c>=80?'De modellen liggen grotendeels op één lijn. De huidige verwachting is daardoor relatief consistent.':c>=60?'De modellen vertonen enkele verschillen. De verwachting is bruikbaar, maar er is extra onzekerheid.':'De modellen verschillen duidelijk. Houd de verwachting de komende uren opnieuw in de gaten.';$('advice').textContent='Nu '+Number(d.current.temperature_2m).toFixed(1)+'°C • maximale neerslagkans komende 6 uur '+Math.round(rain)+'% • hoogste wind '+Math.round(gust)+' km/u.';$('taxi').textContent=rain<30&&gust<45?'🟢 Vooralsnog normale rijomstandigheden.':'🟠 Extra aandacht voor regen/wind tijdens ritten.';$('garden').textContent=rain>60?'💧 Waarschijnlijk weinig extra water nodig.':'🌱 Controleer de bodem; bij droogte water geven.';$('solar').textContent='☀️ Voor zonnepanelen zijn bewolking en straling bepalend; gebruik de modelverwachting als indicatie.';$('alerts').textContent=gust>=60||rain>=80?'⚠️ Verhoogde aandacht voor wind of neerslag.':'🟢 Geen duidelijke zware-weerssignalen in de komende uren.'; updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind,aiRainMm); renderDaily(d)}
+function renderDriverMode(d,name,aiTemp,rainMm6h,rainChance,wind){
+ const h=d.hourly||{},idx=nearestIndex(h.time||[]);
+ const vis=Number(d.current.visibility??NaN);
+ const gust=Number(d.current.wind_gusts_10m??wind);
+ const temp=Number(d.current.temperature_2m);
+ const nextRain=Math.max(...(h.precipitation_probability||[]).slice(idx,idx+3).map(Number).filter(Number.isFinite),0);
+ const nextWind=Math.max(...(h.wind_speed_10m||[]).slice(idx,idx+3).map(Number).filter(Number.isFinite),wind);
+ const freeze=temp<=2 || (h.temperature_2m||[]).slice(idx,idx+6).some(v=>Number(v)<=0);
+ const thunder=Number(d.current.weather_code)>=95 || (h.weather_code||[]).slice(idx,idx+6).some(v=>Number(v)>=95);
+ const danger=thunder||nextWind>=50||nextRain>=80||freeze;
+ const summary=danger?'Extra aandacht tijdens de rit.':'Vooralsnog normale omstandigheden.';
+ const reason=thunder?'Onweer in de verwachting.':freeze?'Kans op gladheid door lage temperatuur.':nextWind>=50?'Harde wind of windstoten verwacht.':nextRain>=80?'Hoge regenkans verwacht.':'Geen duidelijke zware-weerssignalen.';
+ const card=(icon,label,value)=>'<div style="padding:10px;border-radius:12px;background:#132238"><div style="font-size:12px;opacity:.75">'+icon+' '+label+'</div><b style="font-size:17px">'+value+'</b></div>';
+ const grid=$('driverGrid');
+ if(grid) grid.innerHTML=[
+   card('🌧️','Regen 6u',rainMm6h.toFixed(1)+' mm'),
+   card('☔','Regen komende 3u',Math.round(nextRain)+'%'),
+   card('💨','Max wind 3u',Math.round(nextWind)+' km/u'),
+   card('🌬️','Windstoten',Math.round(gust)+' km/u'),
+   card('🌡️','Temperatuur',temp.toFixed(1)+'°C'),
+   card('🧊','Gladheid',freeze?'LET OP':'laag risico')
+ ].join('');
+ const s=$('driverSummary'); if(s) s.innerHTML='<b>'+summary+'</b><br>'+reason+' <span style="opacity:.75">Locatie: '+(name||'gekozen locatie')+'.</span>';
+ const ad=$('driverAdvice');
+ if(ad){
+   ad.innerHTML=danger
+    ? '⚠️ <b>AI-ritadvies:</b> pas snelheid en afstand aan de omstandigheden aan'+(freeze?', let extra op gladde plekken':'')+(nextRain>=80?', houd rekening met slecht zicht bij zware regen':'')+'.'
+    : '🟢 <b>AI-ritadvies:</b> geen bijzondere weersmaatregelen nodig. Blijf de actuele radar en verkeerssituatie volgen.';
+ }
+}
 function renderDaily(d){
  const q=d.daily||{}; const days=q.time||[]; let out='';
  for(let i=0;i<Math.min(7,days.length);i++){
@@ -85,6 +115,17 @@ function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind,aiRainM
  storyParts.push('in '+(name||'Emmen')+'.');
  const storyEl=$('smartStoryText'); if(storyEl) storyEl.textContent=storyParts.join(' ')+' AI-regeninschatting: '+rainMm6h.toFixed(1)+' mm.';
  $('smartConfidence').textContent=confidence?Math.round(confidence):'--';
+
+ const driverBtn=$('driverMode'), driverPanel=$('driverPanel');
+ if(driverBtn && !driverBtn.dataset.ready){
+   driverBtn.dataset.ready='1';
+   driverBtn.onclick=()=>{
+     const open=driverPanel.style.display!=='none';
+     driverPanel.style.display=open?'none':'block';
+     driverBtn.textContent=open?'🚕 Chauffeur-modus':'✕ Chauffeur-modus sluiten';
+     if(!open) renderDriverMode(d,name,aiModelTemp,rainMm6h,rain,wind);
+   };
+ }
 
  // AI-verandering: vergelijk de huidige analyse met de vorige opgeslagen analyse.
  const changeEl=$('smartChangeAIText');
