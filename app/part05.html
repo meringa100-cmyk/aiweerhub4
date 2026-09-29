@@ -85,6 +85,51 @@ function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind,aiRainM
  storyParts.push('in '+(name||'Emmen')+'.');
  const storyEl=$('smartStoryText'); if(storyEl) storyEl.textContent=storyParts.join(' ')+' AI-regeninschatting: '+rainMm6h.toFixed(1)+' mm.';
  $('smartConfidence').textContent=confidence?Math.round(confidence):'--';
+
+ // AI-verandering: vergelijk de huidige analyse met de vorige opgeslagen analyse.
+ const changeEl=$('smartChangeAIText');
+ let prevAI=null;
+ try{prevAI=JSON.parse(localStorage.getItem('aiWeatherSnapshot_'+(name||'Emmen'))||'null');}catch(e){}
+ const nowSnap={time:Date.now(),temp:aiModelTemp,rainMm:rainMm6h,wind:wind,rainChance:rain};
+ if(changeEl&&prevAI){
+   const dt=aiModelTemp-Number(prevAI.temp||aiModelTemp);
+   const dr=rainMm6h-Number(prevAI.rainMm||0);
+   const dw=wind-Number(prevAI.wind||wind);
+   const age=Math.round((Date.now()-Number(prevAI.time||Date.now()))/60000);
+   const parts=[];
+   if(Math.abs(dt)>=0.5) parts.push('AI-temperatuur '+(dt>0?'+' :'')+dt.toFixed(1)+'°C');
+   if(Math.abs(dr)>=0.5) parts.push('regen '+(dr>0?'+':'')+dr.toFixed(1)+' mm');
+   if(Math.abs(dw)>=5) parts.push('wind '+(dw>0?'+':'')+Math.round(dw)+' km/u');
+   changeEl.textContent=parts.length
+     ? 'Sinds de vorige analyse ('+age+' min geleden) veranderd: '+parts.join(' · ')+'.'
+     : 'Sinds de vorige analyse zijn er geen duidelijke veranderingen in de verwachting.';
+ }else if(changeEl){
+   changeEl.textContent='Eerste meting opgeslagen. Bij de volgende analyse zie je wat er veranderd is.';
+ }
+ try{localStorage.setItem('aiWeatherSnapshot_'+(name||'Emmen'),JSON.stringify(nowSnap));}catch(e){}
+
+ // Lokale Emmen-calibratie: bewaar AI-temperatuur en actuele temperatuur en bereken de historische afwijking.
+ const calKey='aiWeatherCalibration_'+(name||'Emmen');
+ let cal=null;
+ try{cal=JSON.parse(localStorage.getItem(calKey)||'null');}catch(e){}
+ if(!cal||!Array.isArray(cal.samples)) cal={samples:[]};
+ // Alleen een nieuwe referentie toevoegen als er minstens 20 minuten tussen metingen zit.
+ const last=cal.samples[cal.samples.length-1];
+ if(!last || Date.now()-Number(last.time)>20*60*1000){
+   cal.samples.push({time:Date.now(),ai:aiModelTemp,actual:actualTemp});
+   if(cal.samples.length>100) cal.samples=cal.samples.slice(-100);
+   try{localStorage.setItem(calKey,JSON.stringify(cal));}catch(e){}
+ }
+ const calEl=$('smartCalibrationText');
+ if(calEl){
+   const samples=cal.samples||[];
+   if(samples.length<3) calEl.textContent='🧠 '+samples.length+' meet'+(samples.length===1?'ing':'ingen')+' opgeslagen. De lokale Emmen-calibratie leert verder bij nieuwe analyses.';
+   else{
+     const errs=samples.map(x=>Math.abs(Number(x.ai)-Number(x.actual))).filter(Number.isFinite);
+     const mae=errs.reduce((s,v)=>s+v,0)/errs.length;
+     calEl.textContent='🧠 '+samples.length+' lokale metingen · gemiddelde AI-afwijking '+mae.toFixed(1)+'°C. Deze reeks wordt automatisch verder opgebouwd.';
+   }
+ }
  $('smartAgreement').textContent=agreement?`Modelovereenkomst ${Math.round(agreement)}%`:'Modelovereenkomst wordt berekend';
  const nextTemps=(h.temperature_2m||[]).slice(idx,idx+7).filter(Number.isFinite);
  const nextRain=(h.precipitation_probability||[]).slice(idx,idx+4).filter(Number.isFinite);
