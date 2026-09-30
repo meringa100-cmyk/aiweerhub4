@@ -48,8 +48,8 @@ function renderV36Insights(d,aiTemp=null,aiRain=null,aiWind=null,aiConfidence=nu
    if(Math.abs(dt)>=.4)parts.push(`${dt>0?'+':''}${dt.toFixed(1)}°C`);
    if(Math.abs(dr)>=10)parts.push(`${dr>0?'+':''}${Math.round(dr)}% regen`);
    if(Math.abs(dw)>=5)parts.push(`${dw>0?'+':''}${Math.round(dw)} km/u wind`);
-   $('smartHourlyChange').textContent=parts.length?`Rond ${new Date(times[largest]).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}: ${parts.join(' • ')}.`:'Geen opvallende omslag.';
- }else $('smartHourlyChange').textContent='Geen opvallende omslag in de komende uren.';
+   if($('smartHourlyChange'))$('smartHourlyChange').textContent=parts.length?`Rond ${new Date(times[largest]).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}: ${parts.join(' • ')}.`:'Geen opvallende omslag.';
+ }else if($('smartHourlyChange'))$('smartHourlyChange').textContent='Geen opvallende omslag in de komende uren.';
  const currentTemp=Number(d.current.temperature_2m),currentWind=Number(d.current.wind_speed_10m);
  const nextRain=Math.max(...rains.filter(Number.isFinite),0),nextWind=Math.max(...winds.filter(Number.isFinite),currentWind);
  const confidence=Number(aiConfidence||0);
@@ -61,7 +61,7 @@ function renderV36Insights(d,aiTemp=null,aiRain=null,aiWind=null,aiConfidence=nu
  else decision='🟡 Buiten kan, maar de omstandigheden kunnen de komende uren wisselen.';
  if(confidence<60)decision+=' De modellen verschillen behoorlijk, dus hercontrole is verstandig.';
  else if(confidence>=80)decision+=' De modellen zijn het redelijk goed met elkaar eens.';
- $('smartDecision').textContent=decision;
+ if($('smartDecision'))$('smartDecision').textContent=decision;
 }
 
 function renderTopSoilFrost(d){
