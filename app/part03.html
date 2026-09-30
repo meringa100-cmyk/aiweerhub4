@@ -9,7 +9,7 @@ async function localNowcast(lat,lon,timezone){
  const precip=(m.precipitation||[]).slice(idx,idx+4).map(Number).filter(Number.isFinite);
  const codes=(m.weather_code||[]).slice(idx,idx+4).map(Number).filter(Number.isFinite);
  const wind=(m.wind_speed_10m||[]).slice(idx,idx+4).map(Number).filter(Number.isFinite);
- const cum=[];let sum=0;for(let i=0;i<4;i++){sum+=Number(precip[i]||0);cum.push(sum)}return {rain60:rain.reduce((a,b)=>a+b,0),precip60:precip.reduce((a,b)=>a+b,0),cum15:cum,peakRain:rain.length?Math.max(...rain):0,peakWind:wind.length?Math.max(...wind):0,codes,times:times.slice(idx,idx+4)};
+ const cum=[];let sum=0;for(let i=0;i<4;i++){sum+=Number(precip[i]||0);cum.push(sum)}return {cum15:[0,1,2,3].map(n=>precip.slice(0,n+1).reduce((a,b)=>a+b,0)),rain60:rain.reduce((a,b)=>a+b,0),precip60:precip.reduce((a,b)=>a+b,0),cum15:cum,peakRain:rain.length?Math.max(...rain):0,peakWind:wind.length?Math.max(...wind):0,codes,times:times.slice(idx,idx+4)};
 }
 function nearestIndex(times){const now=new Date();let idx=0,best=1e99;times.forEach((x,i)=>{const diff=Math.abs(new Date(x)-now);if(diff<best){best=diff;idx=i}});return idx}
 async function loadModels(lat,lon,timezone){
