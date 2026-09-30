@@ -1,4 +1,16 @@
 async function modelWeather(lat,lon,model,timezone){const tz=encodeURIComponent(timezone||'auto');const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&hourly=temperature_2m,precipitation_probability,precipitation,wind_speed_10m&forecast_days=2&timezone='+tz+'&models='+model;const r=await fetch(url+'&_ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(model+' '+r.status);return r.json()}
+async function localNowcast(lat,lon,timezone){
+ const tz=encodeURIComponent(timezone||'auto');
+ const url='https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&minutely_15=precipitation,rain,weather_code,wind_speed_10m&forecast_minutely_15=8&timezone='+tz;
+ const r=await fetch(url+'&_ts='+Date.now(),{cache:'no-store'});
+ if(!r.ok)throw Error('15-minuten neerslag '+r.status);
+ const d=await r.json(),m=d.minutely_15||{},times=m.time||[],idx=times.length?nearestIndex(times):0;
+ const rain=(m.rain||[]).slice(idx,idx+4).map(Number).filter(Number.isFinite);
+ const precip=(m.precipitation||[]).slice(idx,idx+4).map(Number).filter(Number.isFinite);
+ const codes=(m.weather_code||[]).slice(idx,idx+4).map(Number).filter(Number.isFinite);
+ const wind=(m.wind_speed_10m||[]).slice(idx,idx+4).map(Number).filter(Number.isFinite);
+ return {rain60:rain.reduce((a,b)=>a+b,0),precip60:precip.reduce((a,b)=>a+b,0),peakRain:rain.length?Math.max(...rain):0,peakWind:wind.length?Math.max(...wind):0,codes,times:times.slice(idx,idx+4)};
+}
 function nearestIndex(times){const now=new Date();let idx=0,best=1e99;times.forEach((x,i)=>{const diff=Math.abs(new Date(x)-now);if(diff<best){best=diff;idx=i}});return idx}
 async function loadModels(lat,lon,timezone){
  const learned=weightsFor(lat,lon);
