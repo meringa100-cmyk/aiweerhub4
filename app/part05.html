@@ -116,6 +116,29 @@ function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind,aiRainM
  const storyEl=$('smartStoryText'); if(storyEl) storyEl.textContent=storyParts.join(' ')+' AI-regeninschatting: '+rainMm6h.toFixed(1)+' mm.';
  $('smartConfidence').textContent=confidence?Math.round(confidence):'--';
 
+ // V66: één praktische AI-samenvatting + slimme waarschuwingen.
+ const visNow=Number(d.current.visibility);
+ const visNext=Math.min(...(h.visibility||[]).slice(idx,idx+6).map(Number).filter(Number.isFinite));
+ const gustNext=Math.max(Number(d.current.wind_gusts_10m||0),...(h.wind_gusts_10m||[]).slice(idx,idx+6).map(Number).filter(Number.isFinite));
+ const capeNext=Math.max(...(h.cape||[]).slice(idx,idx+6).map(Number).filter(Number.isFinite),0);
+ const thunderNext=(h.weather_code||[]).slice(idx,idx+6).some(v=>Number(v)>=95);
+ const alertBits=[];
+ if(thunderNext||capeNext>=700) alertBits.push('⚡ Er is een verhoogd onweerssignaal in de komende uren.');
+ if(Number.isFinite(visNext)&&visNext<3000) alertBits.push('🌫️ Het zicht kan teruglopen tot ongeveer '+(visNext/1000).toFixed(1)+' km.');
+ if(gustNext>=60) alertBits.push('💨 Windstoten kunnen oplopen tot ongeveer '+Math.round(gustNext)+' km/u.');
+ const alertEl=$('smartWeatherAlert'), alertText=$('smartWeatherAlertText');
+ if(alertEl&&alertText){alertText.innerHTML=alertBits.length?alertBits.join('<br>'):'🟢 Geen opvallend signaal voor onweer, slecht zicht of zware wind in de komende uren.';alertEl.style.display='block';}
+ const must=$('smartMustKnowText');
+ if(must){
+   const mustBits=[];
+   if(thunderNext||capeNext>=700) mustBits.push('⚡ Onweer verdient aandacht.');
+   if(Number.isFinite(visNext)&&visNext<3000) mustBits.push('🌫️ Zicht kan minder worden.');
+   if(gustNext>=60) mustBits.push('💨 Windstoten worden stevig.');
+   if(rain>=60||rainMm6h>=2) mustBits.push('🌧️ Regen blijft een aandachtspunt.');
+   if(!mustBits.length) mustBits.push('🟢 Geen belangrijke weersverandering: de verwachting blijft voorlopig rustig.');
+   must.innerHTML=mustBits.slice(0,3).join('<br>')+'<br><span class="small" style="opacity:.72">Gebaseerd op de gekozen locatie en de verwachting voor de komende uren.</span>';
+ }
+
  const driverBtn=$('driverMode'), driverPanel=$('driverPanel');
  if(driverBtn && !driverBtn.dataset.ready){
    driverBtn.dataset.ready='1';
