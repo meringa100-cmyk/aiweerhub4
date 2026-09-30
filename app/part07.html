@@ -156,6 +156,7 @@ async function directRainNowcast(lat,lon,timezone){
 $('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};analyse();
 // Direct startup rain nowcast: runs independently of the full AI analysis.
 setTimeout(async()=>{try{const g=await geocode(($('city')?.value||'Emmen').trim());directRainNowcast(g.latitude,g.longitude,g.timezone||'auto');}catch(e){console.warn('startup rain nowcast',e)}},700);
+setInterval(async()=>{try{const g=window.currentLocation||await geocode(($('city')?.value||'Emmen').trim());directRainNowcast(g.latitude,g.longitude,g.timezone||'auto');}catch(e){}},5*60*1000);
 
 </script>
 <script>
