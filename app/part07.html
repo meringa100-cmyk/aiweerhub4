@@ -126,7 +126,7 @@ async function refreshRadar(){
     const frameTime=Number(f.time);
     if(frameTime===radarFrameTime){
       const status=document.getElementById('radarStatus');
-      if(status) status.textContent='Radar gecontroleerd • laatste frame '+new Date(frameTime*1000).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})+' • volgende controle binnen 5 min';
+      if(status) status.innerHTML='🟢 <b>Laatste radarframe: '+new Date(frameTime*1000).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})+'</b><br><span class="small">Radar gecontroleerd • volgende controle binnen 5 min</span>';
       return;
     }
     radarFrameTime=frameTime;
@@ -135,7 +135,7 @@ async function refreshRadar(){
     radarLayer=L.tileLayer(tileUrl,{opacity:.62,maxZoom:19,maxNativeZoom:7,tileSize:256,attribution:'Radar © RainViewer'}).addTo(radarMap);
     const frameText=new Date(frameTime*1000).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
     const status=document.getElementById('radarStatus');
-    if(status) status.textContent='Laatste radarframe: '+frameText;
+    if(status) status.innerHTML='🟢 <b>Laatste radarframe: '+frameText+'</b><br><span class="small">Bron: RainViewer • automatische controle elke 5 min</span>';
     log('🔄 Nieuw radarframe geladen: '+frameText);
   }catch(e){log('⚠ Radar vernieuwen: '+e.message);}
 }
