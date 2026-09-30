@@ -36,8 +36,8 @@ function renderV36Insights(d,aiTemp=null,aiRain=null,aiWind=null,aiConfidence=nu
  if(rainStart>=0){
    const s=new Date(times[rainStart]),e=new Date(times[rainEnd]);
    const peak=Math.max(...rains.slice(rainStart,rainEnd+1));
-   $('smartRainWindow').textContent=`Waarschijnlijk venster ${s.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}–${e.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}, piek ${Math.round(peak)}%.`;
- }else $('smartRainWindow').textContent='Geen duidelijk buienvenster in de komende 12 uur.';
+   const smartRainWindow=$('smartRainWindow');if(smartRainWindow)smartRainWindow.textContent=`Waarschijnlijk venster ${s.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}–${e.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}, piek ${Math.round(peak)}%.`;
+ }else {const smartRainWindow=$('smartRainWindow');if(smartRainWindow)smartRainWindow.textContent='Geen duidelijk buienvenster in de komende 12 uur.';}
  let largest=-1,scoreBest=0;
  for(let i=1;i<times.length;i++){
    const score=Math.abs(temps[i]-temps[i-1])*4+Math.abs(rains[i]-rains[i-1])*.35+Math.abs(winds[i]-winds[i-1])*.8;
