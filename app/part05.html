@@ -211,8 +211,8 @@ function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind,aiRainM
    if(Math.abs(dt)>=0.2)parts.push(`${dt>0?'+':''}${dt.toFixed(1)}°C`);
    if(Math.abs(dr)>=3)parts.push(`${dr>0?'+':''}${Math.round(dr)}% regen`);
    if(Math.abs(dw)>=2)parts.push(`${dw>0?'+':''}${Math.round(dw)} km/u wind`);
-   $('smartChange').textContent=parts.length?`Sinds vorige analyse${age?' ('+age+' min geleden)':''}: ${parts.join(' • ')}.`:'Sinds vorige analyse nauwelijks verandering.';
- }else $('smartChange').textContent='Eerste analyse op deze locatie.';
+   if($('smartChange'))$('smartChange').textContent=parts.length?`Sinds vorige analyse${age?' ('+age+' min geleden)':''}: ${parts.join(' • ')}.`:'Sinds vorige analyse nauwelijks verandering.';
+ }else if($('smartChange'))$('smartChange').textContent='Eerste analyse op deze locatie.';
  window.__aiWeatherPrev=current;
  try{localStorage.setItem('aiWeatherPrev_'+(currentLocation?.name||name),JSON.stringify(current));}catch(e){}
  $('smartUpdated').textContent=new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
