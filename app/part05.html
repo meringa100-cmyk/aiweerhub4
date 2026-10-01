@@ -97,23 +97,24 @@ function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind,aiRainM
  $('smartUVMax').textContent=Number.isFinite(uvMax)?'Max vandaag '+uvMax.toFixed(1):'Max vandaag --';
  const comfort = rain>=70?'🌧️ Regenkans is hoog':wind>=35?'💨 Stevige wind':actualTemp<5?'🥶 Fris/koud buiten':actualTemp>=28?'🥵 Warm buiten':'🟢 Comfortabel buitenweer';
  $('smartComfort').textContent=comfort;
- const rainMm6h=(h.precipitation||[]).slice(idx,idx+6).reduce((s,v)=>s+(Number(v)||0),0);
+ const rainMm6h=Number.isFinite(Number(aiRainMm))?Number(aiRainMm):baseRainMm6h;
  const next6=(h.temperature_2m||[]).slice(idx,idx+7).map(Number).filter(Number.isFinite);
  const end6=next6.length?next6[next6.length-1]:actualTemp;
  const trend=end6-actualTemp;
- let storyTitle='AI vertelt je weer';
  let storyParts=[];
- if(rainMm6h<0.2) storyParts.push('De komende 6 uur blijft het naar verwachting grotendeels droog');
- else if(rainMm6h<2) storyParts.push('Er kan de komende 6 uur een beetje regen vallen');
- else if(rainMm6h<6) storyParts.push('Er wordt de komende 6 uur geregeld regen verwacht');
- else storyParts.push('Er kan de komende 6 uur behoorlijk wat regen vallen');
- if(Math.abs(trend)<0.6) storyParts.push('en de temperatuur blijft ongeveer gelijk');
- else if(trend>0) storyParts.push('terwijl het langzaam warmer wordt');
- else storyParts.push('terwijl het langzaam afkoelt');
- if(wind>=35) storyParts.push('met daarbij vrij veel wind');
+ if(rainMm6h<0.2) storyParts.push('De AI verwacht de komende 6 uur overwegend droog weer');
+ else if(rainMm6h<2) storyParts.push('De AI verwacht de komende 6 uur slechts weinig regen');
+ else if(rainMm6h<6) storyParts.push('De AI verwacht de komende 6 uur geregeld regen');
+ else storyParts.push('De AI verwacht de komende 6 uur behoorlijk wat regen');
+ if(Math.abs(trend)<0.6) storyParts.push('en weinig verandering in temperatuur');
+ else if(trend>0) storyParts.push('met een geleidelijke stijging van de temperatuur');
+ else storyParts.push('met een geleidelijke daling van de temperatuur');
+ if(wind>=35) storyParts.push('en daarbij vrij veel wind');
  else if(wind<15) storyParts.push('bij weinig wind');
  storyParts.push('in '+(name||'Emmen')+'.');
- const storyEl=$('smartStoryText'); if(storyEl) storyEl.textContent=storyParts.join(' ')+' AI-regeninschatting: '+rainMm6h.toFixed(1)+' mm.';
+ if(confidence!=null) storyParts.push('Modelzekerheid: '+Math.round(confidence)+'%.');
+ const storyEl=$('smartStoryText');
+ if(storyEl) storyEl.textContent=storyParts.join(' ')+' AI-regeninschatting: '+rainMm6h.toFixed(1)+' mm.';
  $('smartConfidence').textContent=confidence?Math.round(confidence):'--';
 
  // V66: één praktische AI-samenvatting + slimme waarschuwingen.
