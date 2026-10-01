@@ -219,3 +219,20 @@ function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind,aiRainM
  $('smartUpdated').textContent=new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 function renderSurprises(d){
+function updateSmartFog(d){
+ try{
+  const h=d.hourly||{},i=nearestIndex(h.time||[]);
+  const v=(h.visibility||[]).slice(i,i+12).map(Number).filter(Number.isFinite);
+  const rh=(h.relative_humidity_2m||[]).slice(i,i+12).map(Number).filter(Number.isFinite);
+  const t=(h.temperature_2m||[]).slice(i,i+12).map(Number).filter(Number.isFinite);
+  const dp=(h.dew_point_2m||[]).slice(i,i+12).map(Number).filter(Number.isFinite);
+  const w=(h.wind_speed_10m||[]).slice(i,i+12).map(Number).filter(Number.isFinite);
+  if(!v.length)return;
+  const scores=v.map((x,j)=>Math.min(100,(x<1000?65:x<2000?45:x<5000?20:0)+((rh[j]||0)>=97?25:(rh[j]||0)>=93?15:0)+((w[j]||99)<=5?10:((w[j]||99)<=10?5:0))+((Math.abs((t[j]||99)-(dp[j]||-99))<=1)?10:((Math.abs((t[j]||99)-(dp[j]||-99))<=2)?5:0))));
+  const pct=Math.round(Math.max(...scores)), now=(v[0]/1000).toFixed(1), min=(Math.min(...v)/1000).toFixed(1), f=v.findIndex(x=>x<1000);
+  const label=pct>=75?'🌫️ Hoge mistkans':pct>=45?'🌫️ Matige mistkans':pct>=20?'🌫️ Kleine mistkans':'🟢 Nauwelijks mistkans';
+  let s=label+' • kansindicatie <b>'+pct+'%</b> • zicht nu <b>'+now+' km</b> • minimaal verwacht zicht <b>'+min+' km</b>.';
+  if(f>=0)s+=' Mogelijk mistig over ongeveer <b>'+f+' uur</b>.';
+  if($('smartFogText'))$('smartFogText').innerHTML=s;
+ }catch(e){if($('smartFogText'))$('smartFogText').textContent='Mistgegevens tijdelijk niet beschikbaar.';}
+}
