@@ -218,7 +218,6 @@ function updateSmartTop(d,name,confidence,agreement,aiTemp,aiRain,aiWind,aiRainM
  try{localStorage.setItem('aiWeatherPrev_'+(currentLocation?.name||name),JSON.stringify(current));}catch(e){}
  $('smartUpdated').textContent=new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
-function renderSurprises(d){
 function updateSmartFog(d){
  try{
   const h=d.hourly||{},i=nearestIndex(h.time||[]);
@@ -236,3 +235,6 @@ function updateSmartFog(d){
   if($('smartFogText'))$('smartFogText').innerHTML=s;
  }catch(e){if($('smartFogText'))$('smartFogText').textContent='Mistgegevens tijdelijk niet beschikbaar.';}
 }
+
+function renderSurprises(d){
+
