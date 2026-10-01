@@ -162,8 +162,47 @@ async function directRainNowcast(lat,lon,timezone){
   if($('smartRainNowcast'))$('smartRainNowcast').innerHTML='<b>🌧️ LIVE REGEN-NOWCAST</b>'+bars+'<div style="margin-top:7px;font-size:13px">'+startText+' • '+intensity+' • 60 min: <b>'+total.toFixed(1)+' mm</b></div><div class="small" style="margin-top:3px">Piek komende 15 min: '+peak.toFixed(1)+' mm • 🟢 bijgewerkt '+new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})+'</div>';
   if($('smartAIReason'))$('smartAIReason').querySelector('#smartAIReasonText').innerHTML=conclusion;
  }catch(e){if($('rainNowcastStatus'))$('rainNowcastStatus').textContent='⚠️ Regen-nowcast kon niet worden opgehaald';}
-}async function analyse(){ $('log').innerHTML='';const place=$('city').value.trim()||'Emmen';try{log('📍 Locatie zoeken: '+place);const g=await geocode(place);currentLocation={name:g.name,latitude:g.latitude,longitude:g.longitude,timezone:g.timezone||'auto'};directRainNowcast(g.latitude,g.longitude,g.timezone);const name=g.name+(g.admin1?', '+g.admin1:'');$('locationInfo').textContent='📍 '+Number(g.latitude).toFixed(3)+', '+Number(g.longitude).toFixed(3)+' • '+(g.timezone||'lokale tijd');log('✔ Eén locatiepakket aangemaakt voor alle systemen');log('🌍 '+name+' → alle modellen krijgen dezelfde coördinaten en lokale tijdzone');const [base,models,skill,nowcast]=await Promise.all([baseWeather(g.latitude,g.longitude,g.timezone),loadModels(g.latitude,g.longitude,g.timezone),learnModels(g.latitude,g.longitude,g.timezone),localNowcast(g.latitude,g.longitude,g.timezone)]);renderBase(base,name,models.confidence,models.weightedTemp,models.weightedRain,models.weightedWind,models.agreement,models.weightedRainMm,models.weightedRain60,nowcast);log('✔ 15-minuten regen-nowcast voor de komende 60 minuten verwerkt');renderSoilTemperature(base);updateSmartSoil(base);renderSoilFrost(base);renderTopSoilFrost(base);renderExtras(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);renderSurprises(base);renderV36Insights(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);log('✔ V36 slimme buienvenster- en omslaganalyse uitgevoerd');log('✔ Bodemtemperatuur op 0 / 6 / 18 / 54 cm verwerkt');log('✔ 48-uurs bodemtemperatuurtrend berekend');log('✔ Bodemvorst-AI bovenaan berekend met bodem + lucht + dauwpunt + wind + bewolking');log('✔ Open-Meteo basis bijgewerkt');log('✔ ECMWF / HARMONIE / ICON / GFS vergeleken voor dezelfde locatie');log('✔ Historische kalibratie bijgewerkt voor deze locatie');await radar(g.latitude,g.longitude);log('✔ Radar eveneens naar dezelfde locatie verplaatst');if(radarRefreshTimer)clearInterval(radarRefreshTimer);radarRefreshTimer=setInterval(async()=>{await refreshRadar();await checkNearbyRain()},5*60*1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshRadar();checkNearbyRain()}});await refreshRadar();await checkNearbyRain();}catch(e){$('summary').textContent='De live analyse kon niet volledig worden uitgevoerd.';log('❌ '+e.message)}}
-$('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};analyse();
+}let deviceGeoWatchId=null;
+let lastDeviceRadarCenter=null;
+
+function startDeviceLocationTracking(){
+ if(!navigator.geolocation){
+   log('ℹ️ GPS-locatie is niet beschikbaar in deze browser.');
+   return Promise.resolve(false);
+ }
+ return new Promise(resolve=>{
+   navigator.geolocation.getCurrentPosition(pos=>{
+     const lat=Number(pos.coords.latitude),lon=Number(pos.coords.longitude);
+     window.__deviceLocation={latitude:lat,longitude:lon,accuracy:Number(pos.coords.accuracy)||0};
+     lastDeviceRadarCenter={lat,lon};
+     log('📍 GPS gevonden: '+lat.toFixed(5)+', '+lon.toFixed(5)+' • nauwkeurigheid ±'+Math.round(pos.coords.accuracy||0)+' m');
+     resolve(true);
+     if(deviceGeoWatchId===null){
+       deviceGeoWatchId=navigator.geolocation.watchPosition(p=>{
+         const nlat=Number(p.coords.latitude),nlon=Number(p.coords.longitude);
+         window.__deviceLocation={latitude:nlat,longitude:nlon,accuracy:Number(p.coords.accuracy)||0};
+         if(!lastDeviceRadarCenter || Math.abs(nlat-lastDeviceRadarCenter.lat)>0.003 || Math.abs(nlon-lastDeviceRadarCenter.lon)>0.003){
+           lastDeviceRadarCenter={lat:nlat,lon:nlon};
+           if(radarMap){
+             radarMap.setView([nlat,nlon],radarMap.getZoom(),{animate:true});
+             if(radarMarker)radarMarker.setLatLng([nlat,nlon]);
+             else radarMarker=L.marker([nlat,nlon]).addTo(radarMap);
+             radarMarker.bindPopup('📍 Jouw huidige locatie');
+           }
+           currentLocation={...(currentLocation||{}),name:'Jouw huidige locatie',latitude:nlat,longitude:nlon,timezone:currentLocation?.timezone||'auto'};
+           log('📍 Radar automatisch verplaatst naar je huidige GPS-positie.');
+         }
+       },()=>{}, {enableHighAccuracy:true,maximumAge:30000,timeout:15000});
+     }
+   },err=>{
+     log('ℹ️ GPS niet gebruikt: '+(err.code===1?'locatietoestemming geweigerd.':err.code===2?'locatie tijdelijk niet beschikbaar.':'locatie ophalen duurde te lang.'));
+     resolve(false);
+   },{enableHighAccuracy:true,maximumAge:30000,timeout:12000});
+ });
+}
+
+async function analyse(){ $('log').innerHTML='';const place=$('city').value.trim()||'Emmen';try{let g;if(window.__deviceLocation){g={name:'Jouw huidige locatie',latitude:window.__deviceLocation.latitude,longitude:window.__deviceLocation.longitude,timezone:'auto'};log('📍 GPS-locatie wordt gebruikt voor de analyse.');}else{log('📍 Locatie zoeken: '+place);g=await geocode(place);}currentLocation={name:g.name,latitude:g.latitude,longitude:g.longitude,timezone:g.timezone||'auto'};directRainNowcast(g.latitude,g.longitude,g.timezone);const name=g.name+(g.admin1?', '+g.admin1:'');$('locationInfo').textContent='📍 '+Number(g.latitude).toFixed(3)+', '+Number(g.longitude).toFixed(3)+' • '+(g.timezone||'lokale tijd');log('✔ Eén locatiepakket aangemaakt voor alle systemen');log('🌍 '+name+' → alle modellen krijgen dezelfde coördinaten en lokale tijdzone');const [base,models,skill,nowcast]=await Promise.all([baseWeather(g.latitude,g.longitude,g.timezone),loadModels(g.latitude,g.longitude,g.timezone),learnModels(g.latitude,g.longitude,g.timezone),localNowcast(g.latitude,g.longitude,g.timezone)]);renderBase(base,name,models.confidence,models.weightedTemp,models.weightedRain,models.weightedWind,models.agreement,models.weightedRainMm,models.weightedRain60,nowcast);log('✔ 15-minuten regen-nowcast voor de komende 60 minuten verwerkt');renderSoilTemperature(base);updateSmartSoil(base);renderSoilFrost(base);renderTopSoilFrost(base);renderExtras(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);renderSurprises(base);renderV36Insights(base,models.weightedTemp,models.weightedRain,models.weightedWind,models.confidence);log('✔ V36 slimme buienvenster- en omslaganalyse uitgevoerd');log('✔ Bodemtemperatuur op 0 / 6 / 18 / 54 cm verwerkt');log('✔ 48-uurs bodemtemperatuurtrend berekend');log('✔ Bodemvorst-AI bovenaan berekend met bodem + lucht + dauwpunt + wind + bewolking');log('✔ Open-Meteo basis bijgewerkt');log('✔ ECMWF / HARMONIE / ICON / GFS vergeleken voor dezelfde locatie');log('✔ Historische kalibratie bijgewerkt voor deze locatie');await radar(g.latitude,g.longitude);log('✔ Radar eveneens naar dezelfde locatie verplaatst');if(radarRefreshTimer)clearInterval(radarRefreshTimer);radarRefreshTimer=setInterval(async()=>{await refreshRadar();await checkNearbyRain()},5*60*1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshRadar();checkNearbyRain()}});await refreshRadar();await checkNearbyRain();}catch(e){$('summary').textContent='De live analyse kon niet volledig worden uitgevoerd.';log('❌ '+e.message)}}
+$('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};startDeviceLocationTracking().then(()=>analyse());
 // Direct startup rain nowcast: runs independently of the full AI analysis.
 setTimeout(async()=>{try{const g=await geocode(($('city')?.value||'Emmen').trim());directRainNowcast(g.latitude,g.longitude,g.timezone||'auto');}catch(e){console.warn('startup rain nowcast',e)}},700);
 setInterval(async()=>{try{const g=window.currentLocation||await geocode(($('city')?.value||'Emmen').trim());directRainNowcast(g.latitude,g.longitude,g.timezone||'auto');}catch(e){}},5*60*1000);
