@@ -9,15 +9,24 @@ function renderBase(d,name,confidence,aiTemp=null,aiRain=null,aiWind=null,agreem
 function renderDriverMode(d,name,aiTemp,rainMm6h,rainChance,wind){
  const h=d.hourly||{},idx=nearestIndex(h.time||[]);
  const vis=Number(d.current.visibility??NaN);
+ const visNext=(h.visibility||[]).slice(idx,idx+6).map(Number).filter(Number.isFinite);
+ const rhNext=(h.relative_humidity_2m||[]).slice(idx,idx+6).map(Number).filter(Number.isFinite);
+ const tempNext=(h.temperature_2m||[]).slice(idx,idx+6).map(Number).filter(Number.isFinite);
+ const dewNext=(h.dew_point_2m||[]).slice(idx,idx+6).map(Number).filter(Number.isFinite);
+ const windNextFog=(h.wind_speed_10m||[]).slice(idx,idx+6).map(Number).filter(Number.isFinite);
+ const fogScores=visNext.map((x,j)=>Math.min(100,(x<1000?65:x<2000?45:x<5000?20:0)+((rhNext[j]||0)>=97?25:(rhNext[j]||0)>=93?15:0)+((windNextFog[j]||99)<=5?10:((windNextFog[j]||99)<=10?5:0))+((Math.abs((tempNext[j]||99)-(dewNext[j]||-99))<=1)?10:((Math.abs((tempNext[j]||99)-(dewNext[j]||-99))<=2)?5:0))));
+ const fogPct=Math.round(Math.max(...fogScores,0));
+ const minVis=visNext.length?Math.min(...visNext):vis;
+ const fogLabel=fogPct>=75?'hoog':fogPct>=45?'matig':fogPct>=20?'klein':'nauwelijks';
  const gust=Number(d.current.wind_gusts_10m??wind);
  const temp=Number(d.current.temperature_2m);
  const nextRain=Math.max(...(h.precipitation_probability||[]).slice(idx,idx+3).map(Number).filter(Number.isFinite),0);
  const nextWind=Math.max(...(h.wind_speed_10m||[]).slice(idx,idx+3).map(Number).filter(Number.isFinite),wind);
  const freeze=temp<=2 || (h.temperature_2m||[]).slice(idx,idx+6).some(v=>Number(v)<=0);
  const thunder=Number(d.current.weather_code)>=95 || (h.weather_code||[]).slice(idx,idx+6).some(v=>Number(v)>=95);
- const danger=thunder||nextWind>=50||nextRain>=80||freeze;
+ const danger=thunder||nextWind>=50||nextRain>=80||freeze||fogPct>=75||vis<1000;
  const summary=danger?'Extra aandacht tijdens de rit.':'Vooralsnog normale omstandigheden.';
- const reason=thunder?'Onweer in de verwachting.':freeze?'Kans op gladheid door lage temperatuur.':nextWind>=50?'Harde wind of windstoten verwacht.':nextRain>=80?'Hoge regenkans verwacht.':'Geen duidelijke zware-weerssignalen.';
+ const reason=fogPct>=75?'Hoge mistkans / beperkt zicht verwacht.':vis<1000?'Zicht is momenteel beperkt.':thunder?'Onweer in de verwachting.':freeze?'Kans op gladheid door lage temperatuur.':nextWind>=50?'Harde wind of windstoten verwacht.':nextRain>=80?'Hoge regenkans verwacht.':'Geen duidelijke zware-weerssignalen.';
  const card=(icon,label,value)=>'<div style="padding:10px;border-radius:12px;background:#132238"><div style="font-size:12px;opacity:.75">'+icon+' '+label+'</div><b style="font-size:17px">'+value+'</b></div>';
  const grid=$('driverGrid');
  if(grid) grid.innerHTML=[
@@ -26,13 +35,15 @@ function renderDriverMode(d,name,aiTemp,rainMm6h,rainChance,wind){
    card('💨','Max wind 3u',Math.round(nextWind)+' km/u'),
    card('🌬️','Windstoten',Math.round(gust)+' km/u'),
    card('🌡️','Temperatuur',temp.toFixed(1)+'°C'),
-   card('🧊','Gladheid',freeze?'LET OP':'laag risico')
+   card('🧊','Gladheid',freeze?'LET OP':'laag risico'),
+   card('🌫️','Mistkans',fogLabel+' ('+fogPct+'%)'),
+   card('👁️','Zicht',Number.isFinite(vis)?(vis/1000).toFixed(1)+' km':'--'+(minVis&&Number.isFinite(minVis)?' • min '+(minVis/1000).toFixed(1)+' km':''))
  ].join('');
  const s=$('driverSummary'); if(s) s.innerHTML='<b>'+summary+'</b><br>'+reason+' <span style="opacity:.75">Locatie: '+(name||'gekozen locatie')+'.</span>';
  const ad=$('driverAdvice');
  if(ad){
    ad.innerHTML=danger
-    ? '⚠️ <b>AI-ritadvies:</b> pas snelheid en afstand aan de omstandigheden aan'+(freeze?', let extra op gladde plekken':'')+(nextRain>=80?', houd rekening met slecht zicht bij zware regen':'')+'.'
+    ? '⚠️ <b>AI-ritadvies:</b> pas snelheid en afstand aan de omstandigheden aan'+(freeze?', let extra op gladde plekken':'')+(nextRain>=80?', houd rekening met slecht zicht bij zware regen':'')+(fogPct>=75?', let extra op bij mist en beperkt zicht':'')+'.'
     : '🟢 <b>AI-ritadvies:</b> geen bijzondere weersmaatregelen nodig. Blijf de actuele radar en verkeerssituatie volgen.';
  }
 }
