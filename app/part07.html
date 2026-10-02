@@ -250,7 +250,30 @@ async function analyse(silent=false){ if(analysisInProgress&&!silent)return; if(
 $('analyse').onclick=analyse;$('scan').onclick=async()=>{await analyse();log('🛰 Wereldscan uitgevoerd voor de gekozen locatie');log('ℹ KNMI HARMONIE wordt via Open-Meteo geleverd; directe KNMI API blijft een aparte koppeling.');};startDeviceLocationTracking().then(()=>analyse()).then(()=>startAutomaticUpdates());
 // Handmatige plaatszoeker bovenaan de Hub: een gekozen plaats krijgt tijdelijk voorrang op GPS.
 function searchSmartPlace(){const input=document.getElementById('smartCity');const q=(input?.value||'').trim();if(!q)return;const main=document.getElementById('city');if(main)main.value=q;window.__manualLocationActive=true;window.__deviceLocation=null;analyse();}
-document.getElementById('smartSearch')?.addEventListener('click',searchSmartPlace);document.getElementById('smartCity')?.addEventListener('keydown',e=>{if(e.key==='Enter')searchSmartPlace();});
+document.getElementById('smartSearch')?.addEventListener('click',searchSmartPlace);
+document.getElementById('smartCity')?.addEventListener('keydown',e=>{if(e.key==='Enter')searchSmartPlace();});
+async function useMyLocation(){
+  window.__manualLocationActive=false;
+  window.__deviceLocation=null;
+  const btn=document.getElementById('smartMyLocation');
+  if(btn){btn.disabled=true;btn.textContent='📍 Locatie ophalen...';}
+  try{
+    const ok=await startDeviceLocationTracking();
+    if(!ok)throw Error('GPS-locatie kon niet worden opgehaald');
+    const p=window.__deviceLocation;
+    if(p){
+      const main=document.getElementById('city');if(main)main.value='';
+      const input=document.getElementById('smartCity');if(input)input.value='Mijn locatie';
+      await analyse();
+      if(radarMap)radarMap.setView([p.latitude,p.longitude],10,{animate:true});
+    }
+  }catch(e){
+    log('⚠️ Mijn locatie: '+e.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='📍 Mijn locatie';}
+  }
+}
+document.getElementById('smartMyLocation')?.addEventListener('click',useMyLocation);
 
 // Direct startup rain nowcast: runs independently of the full AI analysis.
 setTimeout(async()=>{try{const g=await geocode(($('city')?.value||'Emmen').trim());directRainNowcast(g.latitude,g.longitude,g.timezone||'auto');}catch(e){console.warn('startup rain nowcast',e)}},700);
