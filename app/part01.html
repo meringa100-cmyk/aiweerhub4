@@ -40,6 +40,12 @@
 <body>
 <section id="smartTop" style="max-width:1100px;margin:18px auto;padding:20px;border-radius:22px;background:linear-gradient(135deg,#123b5d,#1d5f82);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.18)">
   <div style="font-size:14px;opacity:.85">📍 <span id="smartPlace">Emmen</span></div>
+  <div id="smartLocationSearch" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+    <input id="smartCity" value="Emmen" placeholder="📍 Zoek plaats..." autocomplete="off"
+      style="flex:1;min-width:180px;padding:11px 12px;border:0;border-radius:10px;font-size:15px">
+    <button id="smartSearch" type="button"
+      style="padding:11px 15px;border:0;border-radius:10px;background:#0ea5e9;color:#fff;font-weight:800;cursor:pointer">📍 Zoek plaats</button>
+  </div>
   <div style="margin-top:8px">
     <div style="font-size:15px;font-weight:700;opacity:.9">🤖 AI TEMPERATUUR</div>
     <div style="font-size:72px;font-weight:900;line-height:1;margin-top:2px"><span id="smartAiTemp">--</span>°C</div>
