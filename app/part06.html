@@ -20,50 +20,6 @@
 }
 
 
-function renderV36Insights(d,aiTemp=null,aiRain=null,aiWind=null,aiConfidence=null){
- const h=d.hourly||{}, idx=nearestIndex(h.time||[]);
- const count=Math.min(12,(h.time||[]).length-idx);
- const times=(h.time||[]).slice(idx,idx+count);
- const rains=(h.precipitation_probability||[]).slice(idx,idx+count).map(Number);
- const temps=(h.temperature_2m||[]).slice(idx,idx+count).map(Number);
- const winds=(h.wind_speed_10m||[]).slice(idx,idx+count).map(Number);
- const codes=(h.weather_code||[]).slice(idx,idx+count).map(Number);
- let rainStart=-1,rainEnd=-1;
- for(let i=0;i<rains.length;i++){
-   if(rains[i]>=45 || codes[i]>=51){if(rainStart<0)rainStart=i;rainEnd=i;}
-   else if(rainStart>=0 && i-rainEnd>=2)break;
- }
- if(rainStart>=0){
-   const s=new Date(times[rainStart]),e=new Date(times[rainEnd]);
-   const peak=Math.max(...rains.slice(rainStart,rainEnd+1));
-   const smartRainWindow=$('smartRainWindow');if(smartRainWindow)smartRainWindow.textContent=`Waarschijnlijk venster ${s.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}–${e.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}, piek ${Math.round(peak)}%.`;
- }else {const smartRainWindow=$('smartRainWindow');if(smartRainWindow)smartRainWindow.textContent='Geen duidelijk buienvenster in de komende 12 uur.';}
- let largest=-1,scoreBest=0;
- for(let i=1;i<times.length;i++){
-   const score=Math.abs(temps[i]-temps[i-1])*4+Math.abs(rains[i]-rains[i-1])*.35+Math.abs(winds[i]-winds[i-1])*.8;
-   if(score>scoreBest){scoreBest=score;largest=i;}
- }
- if(largest>0){
-   const parts=[],dt=temps[largest]-temps[largest-1],dr=rains[largest]-rains[largest-1],dw=winds[largest]-winds[largest-1];
-   if(Math.abs(dt)>=.4)parts.push(`${dt>0?'+':''}${dt.toFixed(1)}°C`);
-   if(Math.abs(dr)>=10)parts.push(`${dr>0?'+':''}${Math.round(dr)}% regen`);
-   if(Math.abs(dw)>=5)parts.push(`${dw>0?'+':''}${Math.round(dw)} km/u wind`);
-   if($('smartHourlyChange'))$('smartHourlyChange').textContent=parts.length?`Rond ${new Date(times[largest]).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}: ${parts.join(' • ')}.`:'Geen opvallende omslag.';
- }else if($('smartHourlyChange'))$('smartHourlyChange').textContent='Geen opvallende omslag in de komende uren.';
- const currentTemp=Number(d.current.temperature_2m),currentWind=Number(d.current.wind_speed_10m);
- const nextRain=Math.max(...rains.filter(Number.isFinite),0),nextWind=Math.max(...winds.filter(Number.isFinite),currentWind);
- const confidence=Number(aiConfidence||0);
- let decision;
- if(nextRain>=70)decision='🌧️ Wachten met een langere buitenactiviteit: regen is waarschijnlijk.';
- else if(nextWind>=55)decision='💨 Buiten kan, maar houd rekening met stevige wind(stoten).';
- else if(currentTemp<7)decision='🧥 Buiten kan prima, maar neem een warme jas.';
- else if(nextRain<25&&nextWind<35)decision='🟢 Dit ziet er uit als een relatief rustig buitenvenster.';
- else decision='🟡 Buiten kan, maar de omstandigheden kunnen de komende uren wisselen.';
- if(confidence<60)decision+=' De modellen verschillen behoorlijk, dus hercontrole is verstandig.';
- else if(confidence>=80)decision+=' De modellen zijn het redelijk goed met elkaar eens.';
- if($('smartDecision'))$('smartDecision').textContent=decision;
-}
-
 function renderTopSoilFrost(d){
  const h=d.hourly||{}, idx=nearestIndex(h.time||[]), times=(h.time||[]).slice(idx,idx+48);
  const s0=(h.soil_temperature_0cm||[]).slice(idx,idx+48).map(Number);
