@@ -1,4 +1,4 @@
-const CACHE_NAME='aiweerhub-v79-35';
+const CACHE_NAME='aiweerhub-v80-36';
 const APP_SHELL=[
  './','./index.html','./manifest.json',
  './app/part01.html','./app/part02.html','./app/part03.html','./app/part04.html',
