@@ -55,6 +55,31 @@ function updateSmartAdvanced(d,models){
    comfortEl.innerHTML='<b>'+level+'</b><br><span style="font-size:22px;font-weight:800">'+hh(a)+'–'+hh(b)+'</span><br>Gecombineerde score '+Math.max(0,Math.min(100,Math.round(best.score)))+'/100.<br>'+why.join(' · ')+'.';
   }else comfortEl.textContent='Nog niet genoeg uurgegevens om een buitenvenster te bepalen.';
  }
+ const changeEl=$('smartChangeRadarText');
+ if(changeEl){
+  const times=h.time||[],tp=h.temperature_2m||[],rp=h.precipitation_probability||[],ws=h.wind_speed_10m||[],wc=h.weather_code||[];
+  const n=Math.min(times.length-1,idx+12);let change=null;
+  for(let j=idx+1;j<=n;j++){
+   const dT=Math.abs(Number(tp[j]??tp[j-1])-Number(tp[j-1]??tp[j]));
+   const dP=Math.abs(Number(rp[j]??0)-Number(rp[j-1]??0));
+   const dW=Math.abs(Number(ws[j]??0)-Number(ws[j-1]??0));
+   const codeNow=Number(wc[j]??0),codePrev=Number(wc[j-1]??0);
+   const wetNow=codeNow>=51,wetPrev=codePrev>=51;
+   const score=dT*8+dP*.65+dW*1.2+(wetNow!==wetPrev?22:0);
+   if(score>=25&&(!change||score>change.score))change={j,score,dT,dP,dW,wetNow,wetPrev,codeNow};
+  }
+  if(!change)changeEl.innerHTML='🟢 Geen duidelijke weersomslag verwacht in de komende 12 uur. De veranderingen lijken geleidelijk.';
+  else{
+   const when=new Date(times[change.j]).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+   const bits=[];
+   if(change.dP>=25)bits.push('regenkans verandert '+Math.round(change.dP)+' procentpunt');
+   if(change.dW>=10)bits.push('wind verandert '+Math.round(change.dW)+' km/u');
+   if(change.dT>=3)bits.push('temperatuur verandert '+change.dT.toFixed(1)+'°C');
+   if(change.wetNow&&!change.wetPrev)bits.push('neerslagachtig weer begint mogelijk');
+   if(!change.wetNow&&change.wetPrev)bits.push('neerslagachtig weer neemt mogelijk af');
+   changeEl.innerHTML='<b>🔎 Mogelijke omslag rond '+when+'</b><br>'+bits.join(' · ')+'.<br><span style="opacity:.8;font-size:12px">Signaaldetectie op basis van uurlijkse verwachting; geen officiële waarschuwing.</span>';
+  }
+ }
  const results=(models?.results||[]).filter(x=>x.ok&&Number.isFinite(Number(x.temp)));
  const modelEl=$('smartModelBattle');
  if(modelEl){
