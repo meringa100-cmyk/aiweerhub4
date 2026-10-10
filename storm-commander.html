@@ -73,12 +73,12 @@ function renderFuture(hour){futureHour=Math.max(0,Math.min(12,Number(hour)||0));
  // Maak zachte buienvelden uit modelneerslag; ze bewegen met de voorspelde windrichting.
  futureMarkers.forEach(m=>map.removeLayer(m));futureMarkers=[];
  rows.forEach(x=>{
-   if(x.prob<20 && x.mm<0.1)return;
+   if(x.prob<10 && x.mm<0.05)return;
    const strength=Math.max(0,Math.min(1,Math.max(x.prob/100,x.mm/2.5)));
    const color=x.mm>=2?'#ff5364':x.mm>=0.8?'#ffb454':x.mm>=0.2?'#32b8ff':'#43e5c0';
-   const icon=L.divIcon({className:'',iconSize:[92,62],iconAnchor:[46,31],html:'<div style="width:92px;height:62px;border-radius:55% 45% 60% 40%;background:radial-gradient(ellipse at 45% 50%,'+color+Math.round((.28+strength*.35)*255).toString(16).padStart(2,'0')+' 0%, '+color+'70 38%, '+color+'18 70%, transparent 78%);filter:blur(5px);transform:rotate('+(x.wind||0)+'deg);pointer-events:none"></div>'});
+   const icon=L.divIcon({className:'forecast-cloud',iconSize:[150,96],iconAnchor:[75,48],html:'<div style="width:150px;height:96px;border-radius:55% 45% 60% 40%;background:radial-gradient(ellipse at 45% 50%,'+color+Math.round((.35+strength*.45)*255).toString(16).padStart(2,'0')+' 0%, '+color+'88 30%, '+color+'38 58%, transparent 78%);filter:blur(7px);transform:rotate('+(x.wind||0)+'deg);pointer-events:none"></div>'});
    const marker=L.marker([x.place.lat,x.place.lon],{icon,interactive:false,keyboard:false,zIndexOffset:300}).addTo(map);
-   marker._stormMotion={lat:x.place.lat,lon:x.place.lon,dir:Number(x.data?.hourly?.wind_direction_10m?.[x.idx]??x.data?.current?.wind_direction_10m??240),speed:Number(x.wind||0),phase:Math.random()*Math.PI*2};
+   marker._stormMotion={lat:x.place.lat,lon:x.place.lon,dir:(Number(x.data?.hourly?.wind_direction_10m?.[x.idx]??x.data?.current?.wind_direction_10m??240)+180)%360,speed:Number(x.wind||0),phase:Math.random()*Math.PI*2,elapsed:0};
    futureMarkers.push(marker);
  });
  if(window._stormMotionTimer)clearInterval(window._stormMotionTimer);
@@ -87,10 +87,11 @@ function renderFuture(hour){futureHour=Math.max(0,Math.min(12,Number(hour)||0));
    const elapsed=Date.now()/1000;
    futureMarkers.forEach(m=>{
      const q=m._stormMotion;if(!q)return;
-     const drift=(q.speed/3600)*0.018;
+     const drift=(Math.max(8,q.speed)/111/3600)*8;
      const phase=elapsed*.65+q.phase;
-     const north=drift*Math.cos(q.dir*Math.PI/180)*Math.sin(phase);
-     const east=drift*Math.sin(q.dir*Math.PI/180)*Math.sin(phase);
+     const distance=drift*phase;
+     const north=distance*Math.cos(q.dir*Math.PI/180);
+     const east=distance*Math.sin(q.dir*Math.PI/180)/Math.max(.55,Math.cos(q.lat*Math.PI/180));
      m.setLatLng([q.lat+north,q.lon+east]);
    });
  },350);
