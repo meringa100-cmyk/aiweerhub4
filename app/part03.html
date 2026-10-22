@@ -5,28 +5,39 @@ async function loadModels(lat,lon,timezone){
  $('models').innerHTML='';$('spread').textContent='⏳ Live modellen ophalen...';
  const results=await Promise.all(Object.entries(modelDefs).map(async ([name,c])=>{try{const d=await modelWeather(lat,lon,c.model,timezone);const i=nearestIndex(d.hourly.time);return {name,id:c.id,role:c.role,temp:d.hourly.temperature_2m[i],rain:d.hourly.precipitation_probability[i],wind:d.hourly.wind_speed_10m[i],ok:true,time:d.hourly.time[i]}}catch(e){return {name,id:c.id,role:c.role,ok:false,error:e.message}}}));
  results.forEach(x=>{const el=$(x.id);el.innerHTML=x.ok?'<span class="ok">🟢 live</span>':'<span class="error">🔴 fout</span>';$('models').innerHTML+=`<div class="mini"><b>${x.name}</b><br>${x.ok?`🟢 live<br>🌡️ ${Math.round(x.temp)}°C<br>🌧️ ${Math.round(x.rain)}%<br>💨 ${Math.round(x.wind)} km/u`:`🔴 ${x.error}`}<br><span class="small muted">${x.role}</span></div>`});
- const good=results.filter(x=>x.ok);if(good.length){const temps=good.map(x=>x.temp),rains=good.map(x=>x.rain),winds=good.map(x=>x.wind);const avg=t=>t.reduce((a,b)=>a+b,0)/t.length;const ts=Math.max(...temps)-Math.min(...temps),rs=Math.max(...rains)-Math.min(...rains),ws=Math.max(...winds)-Math.min(...winds);const tempScore=Math.max(0,100-ts*20),rainScore=Math.max(0,100-rs*.6),windScore=Math.max(0,100-ws*2);const agreement=Math.round((tempScore+rainScore+windScore)/3); const weights=good.map(x=>learned[x.id]||1); const wsum=weights.reduce((a,b)=>a+b,0); const weightedTemp=good.reduce((a,x,i)=>a+x.temp*weights[i],0)/wsum; const weightedRain=good.reduce((a,x,i)=>a+x.rain*weights[i],0)/wsum; const weightedWind=good.reduce((a,x,i)=>a+x.wind*weights[i],0)/wsum; const learnedAvg=good.reduce((a,x,i)=>a+(Number(learned[x.id])||75)*weights[i],0)/wsum; const confidence=Math.round(Math.min(99,Math.max(1,agreement*.65+learnedAvg*.35))); $('spread').innerHTML=`🧠 <b>Modelovereenkomst ${agreement}%</b><br>🎯 <b>Gewogen AI-vertrouwen ${confidence}%</b><br>Samengestelde verwachting: 🌡️ ${weightedTemp.toFixed(1)}°C • 🌧️ ${Math.round(weightedRain)}% • 💨 ${Math.round(weightedWind)} km/u<br>Temperatuurspreiding: ${ts.toFixed(1)}°C • neerslagspreiding: ${Math.round(rs)} procentpunt • windspreiding: ${Math.round(ws)} km/u<br><span class="muted">${good.length}/4 modellen live. Historische modelprestatie bepaalt mee hoeveel invloed een model krijgt.</span>`;return {results,confidence,agreement,weightedTemp,weightedRain,weightedWind}}
+ const good=results.filter(x=>x.ok);if(good.length){const temps=good.map(x=>x.temp),rains=good.map(x=>x.rain),winds=good.map(x=>x.wind);const avg=t=>t.reduce((a,b)=>a+b,0)/t.length;const ts=Math.max(...temps)-Math.min(...temps),rs=Math.max(...rains)-Math.min(...rains),ws=Math.max(...winds)-Math.min(...winds);const tempScore=Math.max(0,100-ts*20),rainScore=Math.max(0,100-rs*.6),windScore=Math.max(0,100-ws*2);const agreement=Math.round((tempScore+rainScore+windScore)/3); const weights=good.map(x=>Number(learned[x.id])||75); const wsum=weights.reduce((a,b)=>a+b,0); const weightedTemp=good.reduce((a,x,i)=>a+x.temp*weights[i],0)/wsum; const weightedRain=good.reduce((a,x,i)=>a+x.rain*weights[i],0)/wsum; const weightedWind=good.reduce((a,x,i)=>a+x.wind*weights[i],0)/wsum; const learnedAvg=good.reduce((a,x,i)=>a+(Number(learned[x.id])||75)*weights[i],0)/wsum; const confidence=Math.round(Math.min(99,Math.max(1,agreement*.65+learnedAvg*.35))); $('spread').innerHTML=`🧠 <b>Modelovereenkomst ${agreement}%</b><br>🎯 <b>Gewogen AI-vertrouwen ${confidence}%</b><br>Samengestelde verwachting: 🌡️ ${weightedTemp.toFixed(1)}°C • 🌧️ ${Math.round(weightedRain)}% • 💨 ${Math.round(weightedWind)} km/u<br>Temperatuurspreiding: ${ts.toFixed(1)}°C • neerslagspreiding: ${Math.round(rs)} procentpunt • windspreiding: ${Math.round(ws)} km/u<br><span class="muted">${good.length}/4 modellen live. Historische modelprestatie bepaalt mee hoeveel invloed een model krijgt.</span>`;return {results,confidence,agreement,weightedTemp,weightedRain,weightedWind}}
  $('spread').innerHTML='⚠️ Geen modeldata beschikbaar.';return {results,confidence:0,agreement:0,weightedTemp:null,weightedRain:null,weightedWind:null}
 }
 async function historicalObservation(lat,lon,timezone){
- const end=new Date(); end.setDate(end.getDate()-1); const start=new Date(end); start.setDate(start.getDate()-13);
- const iso=x=>x.toISOString().slice(0,10); const url='https://historical-forecast-api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&start_date='+iso(start)+'&end_date='+iso(end)+'&hourly=temperature_2m&timezone='+encodeURIComponent(timezone||'auto')+'&models=ecmwf_ifs025';
- const r=await fetch(url); if(!r.ok) throw Error('Historische referentie '+r.status); return r.json();
+ const end=new Date(); end.setDate(end.getDate()-6); const start=new Date(end); start.setDate(start.getDate()-13);
+ const iso=x=>x.toISOString().slice(0,10);
+ const url='https://archive-api.open-meteo.com/v1/archive?latitude='+lat+'&longitude='+lon+'&start_date='+iso(start)+'&end_date='+iso(end)+'&hourly=temperature_2m&timezone='+encodeURIComponent(timezone||'auto')+'&models=era5_land';
+ const r=await fetch(url); if(!r.ok) throw Error('ERA5-Land-referentie '+r.status);
+ const d=await r.json(); if(!d.hourly?.time?.length) throw Error('ERA5-Land-referentie nog niet beschikbaar');
+ return d;
 }
 async function modelSkill(lat,lon,def,timezone){
- const end=new Date(); end.setDate(end.getDate()-1); const start=new Date(end); start.setDate(start.getDate()-13); const iso=x=>x.toISOString().slice(0,10);
+ const end=new Date(); end.setDate(end.getDate()-6); const start=new Date(end); start.setDate(start.getDate()-13); const iso=x=>x.toISOString().slice(0,10);
  const u='https://previous-runs-api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&start_date='+iso(start)+'&end_date='+iso(end)+'&hourly=temperature_2m_previous_day1&timezone='+encodeURIComponent(timezone||'auto')+'&models='+encodeURIComponent(def.model);
- const [pr,obs]=await Promise.all([fetch(u),historicalObservation(lat,lon,timezone)]); if(!pr.ok||!obs) throw Error(def.model+' historisch niet beschikbaar');
- const pd=await pr.json(); const oh=obs.hourly; const ph=pd.hourly; const map=new Map(oh.time.map((t,i)=>[t,oh.temperature_2m[i]])); let errs=[];
- ph.time.forEach((t,i)=>{const a=ph.temperature_2m_previous_day1?.[i],b=map.get(t); if(Number.isFinite(a)&&Number.isFinite(b)) errs.push(Math.abs(a-b));});
- if(!errs.length) throw Error('geen overlap'); const mae=errs.reduce((a,b)=>a+b,0)/errs.length; const score=Math.max(35,Math.min(99,100-mae*18)); return {mae,score,n:errs.length};
+ const [pr,ref]=await Promise.all([fetch(u),historicalObservation(lat,lon,timezone)]);
+ if(!pr.ok) throw Error(def.model+' historische runs '+pr.status);
+ const pd=await pr.json(), rh=ref.hourly, ph=pd.hourly;
+ if(!rh?.time?.length||!ph?.time?.length) throw Error('geen historische overlap');
+ const map=new Map(rh.time.map((t,i)=>[t,Number(rh.temperature_2m[i])]));
+ const errs=[],biases=[];
+ ph.time.forEach((t,i)=>{const forecast=Number(ph.temperature_2m_previous_day1?.[i]),reference=map.get(t);if(Number.isFinite(forecast)&&Number.isFinite(reference)){errs.push(Math.abs(forecast-reference));biases.push(forecast-reference)}});
+ if(errs.length<48) throw Error('te weinig overlap ('+errs.length+' uur; minimaal 48 nodig)');
+ const mae=errs.reduce((a,b)=>a+b,0)/errs.length;
+ const bias=biases.reduce((a,b)=>a+b,0)/biases.length;
+ const score=Math.max(35,Math.min(99,100-mae*18));
+ return {mae,bias,score,n:errs.length,reference:'ERA5-Land'};
 }
 async function learnModels(lat,lon,timezone){
  const learned=weightsFor(lat,lon);
- $('learning').innerHTML=''; $('learningNote').textContent='⏳ Recente modelprestaties worden berekend...';
+ $('learning').innerHTML=''; $('learningNote').textContent='⏳ Laatst beschikbare 14 dagen worden vergeleken met ERA5-Land-heranalyse (met vertraging)...';
  const out=await Promise.all(Object.entries(modelDefs).map(async ([name,def])=>{try{return {name,id:def.id,ok:true,...await modelSkill(lat,lon,def,timezone)}}catch(e){return {name,id:def.id,ok:false,error:e.message}}}));
- out.forEach(x=>{if(x.ok){learned[x.id]=x.score; $('learning').innerHTML+=`<div class="mini"><b>${x.name}</b><br>🎯 Historische score: <b>${Math.round(x.score)}%</b><br>MAE temperatuur: ${x.mae.toFixed(2)}°C<br><span class="small muted">${x.n} vergelijkbare uren</span></div>`}else{$('learning').innerHTML+=`<div class="mini"><b>${x.name}</b><br><span class="warn">🟡 ${x.error}</span></div>`}});
- const good=out.filter(x=>x.ok); if(good.length){good.forEach(x=>learned[x.id]=x.score); saveWeights(lat,lon,learned); $('learningNote').innerHTML='🧠 <b>Gewichten aangepast.</b> De historische foutmarge bepaalt hoeveel invloed elk model krijgt op de samengestelde verwachting. '+good.length+'/4 modellen konden worden gekalibreerd.';} else $('learningNote').textContent='⚠️ Historische kalibratie is tijdelijk niet beschikbaar; de live modelvergelijking blijft werken.';
+ out.forEach(x=>{if(x.ok){learned[x.id]=x.score; $('learning').innerHTML+=`<div class="mini"><b>${x.name}</b><br>🎯 Referentiescore: <b>${Math.round(x.score)}%</b><br>MAE t.o.v. ERA5-Land: ${x.mae.toFixed(2)}°C<br>Gemiddelde afwijking: ${x.bias>0?'+':''}${x.bias.toFixed(2)}°C<br><span class="small muted">${x.n} uren • reanalyse, geen stationmeting</span></div>`}else{$('learning').innerHTML+=`<div class="mini"><b>${x.name}</b><br><span class="warn">🟡 ${x.error}</span></div>`}});
+ const good=out.filter(x=>x.ok); if(good.length){good.forEach(x=>learned[x.id]=x.score); saveWeights(lat,lon,learned); $('learningNote').innerHTML='🧠 <b>Referentiegewichten bijgewerkt.</b> ERA5-Land is een heranalyse en benadering van de werkelijkheid, geen lokale thermometer. Alleen modellen met minimaal 48 overlappende uren krijgen een score. '+good.length+'/4 modellen konden worden beoordeeld.';} else $('learningNote').textContent='⚠️ Historische kalibratie is tijdelijk niet beschikbaar; de live modelvergelijking blijft werken.';
  return learned;
 }
 function windDir(deg){if(!Number.isFinite(deg))return 'onbekend';const dirs=['N','NNO','NO','ONO','O','OZO','ZO','ZZO','Z','ZZW','ZW','WZW','W','WNW','NW','NNW'];return dirs[Math.round(deg/22.5)%16]}
