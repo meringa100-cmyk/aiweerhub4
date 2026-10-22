@@ -31,9 +31,9 @@
 @media(max-width:650px){#v48Hours{grid-template-columns:repeat(12,minmax(74px,1fr));overflow-x:auto}}
 </style>
 
-<style id="hideBelowRadar">
-/* V49: alles onder de regenradar blijft in de app/code bewaard, maar wordt niet zichtbaar gemaakt. */
-#topRadar ~ header, #topRadar ~ main, #topRadar ~ section, #topRadar ~ div, #topRadar ~ footer { display:none !important; }
+<style id="restoreBelowRadar">
+/* Herstel: toon ook de bestaande uursverwachting en overige onderdelen onder de radar. */
+#topRadar ~ header, #topRadar ~ main, #topRadar ~ section, #topRadar ~ div, #topRadar ~ footer { display: revert; }
 </style>
 <style id="ai-temp-focus">#smartTop #smartAiTemp{letter-spacing:-2px}@media(max-width:650px){#smartTop #smartAiTemp{font-size:64px}}</style>
 </head>
