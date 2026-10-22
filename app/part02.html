@@ -21,7 +21,7 @@
 
 <section id="v48Timeline" style="max-width:1100px;margin:0 auto 18px;padding:16px;border-radius:18px;background:#132238;box-shadow:0 5px 20px rgba(0,0,0,.18)">
   <h2 style="margin-top:0">🗓️ Wat gaat er de komende 12 dagen gebeuren?</h2>
-  <p id="v48Headline" class="muted">De AI bouwt de 12-daagse verwachting op...</p><div id="v49Summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin:10px 0"></div>
+  <p id="v48Headline" class="muted">De AI bouwt de 12-daagse verwachting op...</p><div id="incomingRain" style="margin:10px 0;padding:12px;border-radius:12px;background:#0b1729;border:1px solid #29415f">🌧️ Regenverwachting voor de komende uren wordt berekend...</div><div id="v49Summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin:10px 0"></div>
   <div id="v48Hours" style="display:grid;grid-template-columns:repeat(12,minmax(78px,1fr));gap:7px;overflow-x:auto"></div>
   <div id="v48Warnings" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px"></div><div id="v49Narrative" style="margin-top:10px;padding:12px;border-radius:12px;background:#0b1729;line-height:1.5"></div>
 </section>
@@ -34,7 +34,7 @@
 <section class="card"><h2>🤖 AI conclusie</h2><p id="summary">Nog geen analyse.</p><div class="bar"><i id="confbar"></i></div><p id="advice"></p></section>
 <section class="card"><h2>📡 Bronstatus</h2><table id="sources"><tr><th>Model</th><th>Status</th><th>Levering</th></tr><tr><td>Open-Meteo basis</td><td id="om">⏳</td><td>Live basis</td></tr><tr><td>KNMI HARMONIE AROME NL</td><td id="harmonie">⏳</td><td>2 km-model via Open-Meteo</td></tr><tr><td>ECMWF IFS HRES</td><td id="ecmwf">⏳</td><td>9 km-model via Open-Meteo</td></tr><tr><td>DWD ICON EU</td><td id="icon">⏳</td><td>Model via Open-Meteo</td></tr><tr><td>NCEP GFS</td><td id="gfs">⏳</td><td>Model via Open-Meteo</td></tr></table></section>
 <section class="card wide"><h2>🧠 Live modelvergelijking</h2><p class="muted">De AI kijkt naar dezelfde locatie en hetzelfde tijdstip en vergelijkt temperatuur, neerslagkans en wind.</p><div id="models" class="models"></div><div id="spread" class="spread">⏳ Modelspreiding wordt berekend...</div></section>
-<section class="card wide"><h2>🧠 Zelflerende modelgewichten</h2><p class="muted">De Hub vergelijkt recente voorspellingen van de modellen met historische weerdata en gebruikt de foutmarge om de gewichten aan te passen. Dit is transparante statistische kalibratie, geen getraind neuraal netwerk.</p><div id="learning" class="models"><div class="mini">⏳ Historische modelprestatie laden...</div></div><div id="learningNote" class="spread">Nog geen kalibratie uitgevoerd.</div></section>
+<section class="card wide"><h2>🧠 Zelflerende modelgewichten</h2><p class="muted">De Hub vergelijkt eerdere modelverwachtingen met ERA5-Land-heranalyse als referentie. Dit is geen rechtstreekse vergelijking met gemeten weerstations; de referentie kan achterlopen. De scores zijn een transparante statistische indicatie, geen getraind neuraal netwerk.</p><div id="learning" class="models"><div class="mini">⏳ Historische modelprestatie laden...</div></div><div id="learningNote" class="spread">Nog geen kalibratie uitgevoerd.</div></section>
 
 <section class="card wide"><h2>🌱 Bodemtemperatuur</h2>
 <div id="soilTemp" class="notice">Bodemtemperatuur laden...</div>
@@ -59,10 +59,10 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
-const $=id=>document.getElementById(id);let last=null;let currentLocation=null;let learnedStore=JSON.parse(localStorage.getItem('AIWeerHubWeightsV22')||'{}');
+const $=id=>document.getElementById(id);let last=null;let currentLocation=null;let learnedStore=JSON.parse(localStorage.getItem('AIWeerHubWeightsV65')||'{}');
 function locationKey(lat,lon){return Number(lat).toFixed(3)+','+Number(lon).toFixed(3)}
 function weightsFor(lat,lon){const k=locationKey(lat,lon);return learnedStore[k]||{} }
-function saveWeights(lat,lon,w){learnedStore[locationKey(lat,lon)]=w;localStorage.setItem('AIWeerHubWeightsV22',JSON.stringify(learnedStore));}
+function saveWeights(lat,lon,w){learnedStore[locationKey(lat,lon)]=w;localStorage.setItem('AIWeerHubWeightsV65',JSON.stringify(learnedStore));}
 function log(s){$('log').innerHTML+=s+'<br>';$('log').scrollTop=$('log').scrollHeight}
 function code(c){if(c===0)return'☀️ helder';if(c<=3)return'🌤️ bewolkt';if(c<=48)return'🌫️ mistig';if(c<=67)return'🌧️ regen';if(c<=77)return'🌨️ sneeuw';if(c<=82)return'🌦️ buien';if(c>=95)return'⛈️ onweer';return'🌦️ wisselvallig'}
 async function geocode(place){const q=encodeURIComponent(place);const r=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+q+'&count=1&language=nl&format=json');if(!r.ok)throw Error('Geocoding '+r.status);const d=await r.json();if(!d.results?.length)throw Error('Plaats niet gevonden');return d.results[0]}
