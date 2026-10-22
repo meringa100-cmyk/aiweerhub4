@@ -2,6 +2,36 @@
       cards.push(`<div class="v48hour"><b>${j===0?'NU':hour(h.time[i])}</b><div style="font-size:25px">${v49WeatherIcon(code)}</div><div class="v48temp">${Number.isFinite(temp)?Math.round(temp)+'°':'--'}</div><div style="font-size:12px">🌧️ ${Math.round(rain)}%</div><div class="v48rain"><i style="width:${Math.max(0,Math.min(100,rain))}%"></i></div><div style="font-size:12px;margin-top:5px">💨 ${Math.round(wind)} km/u</div>${gust>wind+10?`<div style="font-size:11px;color:#fde68a">stoot ${Math.round(gust)}</div>`:''}</div>`);
     }
     $v('v48Hours').innerHTML=cards.join('');
+    // V52: persoonlijke Buitenmoment-AI — kiest het prettigste uur uit de bestaande uursverwachting.
+    // Alleen gebaseerd op de reeds opgehaalde verwachting; er worden geen extra API-aanroepen gedaan.
+    if(!$v('v52OutsideMoment')){
+      const outside=document.createElement('section');
+      outside.id='v52OutsideMoment';
+      outside.style.cssText='max-width:1100px;margin:0 auto 18px;padding:16px;border-radius:18px;background:linear-gradient(135deg,#123b5d,#174b48);box-shadow:0 5px 20px rgba(0,0,0,.18)';
+      outside.innerHTML='<h2 style="margin:0 0 6px">🌿 V52 • Jouw slimste buitenmoment</h2><p id="v52OutsideText" style="margin:0;line-height:1.5">Het beste moment wordt berekend op basis van regen, temperatuur en wind.</p><div id="v52OutsideDetails" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div><p style="font-size:12px;opacity:.8;margin:10px 0 0">Praktisch advies op basis van de verwachting, geen garantie. Bij waarschuwingen geldt altijd het officiële advies.</p>';
+      const radar=$v('topRadar');
+      radar?.parentNode?.insertBefore(outside,radar);
+    }
+    const outsideCandidates=[];
+    for(let oi=0;oi<n;oi++){
+      const ot=Number(temps[idx+oi]), orain=Number(rains[idx+oi]), ow=Number(winds[idx+oi]);
+      if(Number.isFinite(ot)&&Number.isFinite(orain)&&Number.isFinite(ow)){
+        const score=Math.max(0,100-orain)*0.55 + Math.max(0,45-ow)*0.65 + (ot>=12&&ot<=24?18:ot>=8&&ot<12?8:ot>24&&ot<=28?6:0);
+        outsideCandidates.push({oi,ot,orain,ow,score});
+      }
+    }
+    outsideCandidates.sort((a,b)=>b.score-a.score);
+    const bestOutside=outsideCandidates[0];
+    if(bestOutside){
+      const outsideTime=bestOutside.oi===0?'nu':hour(h.time[idx+bestOutside.oi]);
+      const outsideWhy=bestOutside.orain<=20?'lage regenkans':bestOutside.orain<=50?'enige kans op regen':'flinke regenkans';
+      $v('v52OutsideText').textContent='Beste kans: '+outsideTime+'. '+outsideWhy+', ongeveer '+Math.round(bestOutside.ot)+'°C en wind rond '+Math.round(bestOutside.ow)+' km/u.';
+      $v('v52OutsideDetails').innerHTML='<span style="background:#ffffff20;padding:7px 10px;border-radius:10px">🌡️ '+Math.round(bestOutside.ot)+'°C</span><span style="background:#ffffff20;padding:7px 10px;border-radius:10px">🌧️ '+Math.round(bestOutside.orain)+'% regenkans</span><span style="background:#ffffff20;padding:7px 10px;border-radius:10px">💨 '+Math.round(bestOutside.ow)+' km/u</span>';
+    }else{
+      $v('v52OutsideText').textContent='Het buitenmoment is nog niet beschikbaar; de benodigde uurlijkse gegevens ontbreken.';
+      $v('v52OutsideDetails').innerHTML='';
+    }
+
     // V51: 12-daagse verwachting in het grote voorspellingsblok
     const daily=d.daily||{};
     const days=Math.min(12,daily.time?.length||0);
